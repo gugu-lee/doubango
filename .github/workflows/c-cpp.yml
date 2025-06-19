@@ -1,83 +1,187 @@
-name: Rocky Linux Manual Workflow (Updated)
+name: Doubango Build with Rocky Linux
 
 on:
-  workflow_dispatch:   # 允许手动触发
+  workflow_dispatch:
     inputs:
-      package:
-        description: '要安装的软件包'
+      android_abi:
+        description: 'Android ABI (armeabi-v7a, arm64-v8a, x86, x86_64)'
         required: true
-        default: 'nginx'
-      run_tests:
-        description: '是否运行测试 (true/false)'
+        default: 'arm64-v8a'
+      ndk_version:
+        description: 'Android NDK version (e.g., r25c)'
+        required: true
+        default: 'r25c'
+      rocky_version:
+        description: 'Rocky Linux version (8 or 9)'
+        required: true
+        default: '9'
+      enable_debug:
+        description: 'Enable debug symbols (true/false)'
         type: boolean
         default: true
-        required: false
-      rocky_version:
-        description: 'Rocky Linux 版本 (8 或 9)'
-        default: '9'
-        required: true
 
 jobs:
-  rocky-linux-container-job:
-    runs-on: ubuntu-latest   # 使用 GitHub 托管的 Ubuntu 运行器
-    
-    # 动态选择 Rocky Linux 版本
+  build-doubango:
+    runs-on: ubuntu-latest
     container:
       image: rockylinux:${{ github.event.inputs.rocky_version }}
-      options: --privileged  # 启用特权模式
-      env:
-        ROCKY_VERSION: ${{ github.event.inputs.rocky_version }}
+      options: --privileged  # 需要特权模式访问设备
+    
+    env:
+      ANDROID_SDK_ROOT: /opt/android-sdk
+      ANDROID_NDK_HOME: /opt/android-ndk
+      DOUBANGO_SOURCE: /doubango
+      DOUBANGO_OUTPUT: /output
+      ANDROID_ABI: ${{ github.event.inputs.android_abi }}
+      NDK_VERSION: ${{ github.event.inputs.ndk_version }}
+      ROCKY_VERSION: ${{ github.event.inputs.rocky_version }}
+      ENABLE_DEBUG: ${{ github.event.inputs.enable_debug }}
     
     steps:
-      # 步骤 1: 检出代码
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Print build parameters
+      run: |
+        echo "### 编译参数"
+        echo "Android ABI: $ANDROID_ABI"
+        echo "NDK Version: $NDK_VERSION"
+        echo "Rocky Linux Version: $ROCKY_VERSION"
+        echo "Debug Symbols: $ENABLE_DEBUG"
+        echo "Container OS: $(cat /etc/os-release | grep PRETTY_NAME)"
+        echo "###"
       
-      # 步骤 2: 显示系统信息
-      - name: Show Rocky Linux version
-        run: |
-          echo "运行在 Rocky Linux $ROCKY_VERSION"
-          cat /etc/os-release
-          uname -a
-          dnf --version
+    - name: Install system dependencies
+      run: |
+        dnf update -y
+        dnf install -y \
+          autoconf \
+          automake \
+          libtool \
+          pkgconfig \
+          make \
+          gcc-c++ \
+          yasm \
+          nasm \
+          wget \
+          unzip \
+          tar \
+          git \
+          python3 \
+          glibc-langpack-en \
+          java-11-openjdk-devel
+        
+        # 设置语言环境
+        export LANG=en_US.UTF-8
+        
+        # 验证安装
+        autoconf --version
+        automake --version
+        make --version
+        g++ --version
       
-      # 步骤 3: 安装用户指定的软件包
-      - name: Install requested package
-        run: |
-          echo "正在安装包: ${{ github.event.inputs.package }}"
-          dnf update -y
-          dnf install -y ${{ github.event.inputs.package }}
-          dnf clean all
+    - name: Setup Android SDK
+      run: |
+        mkdir -p $ANDROID_SDK_ROOT
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+        unzip cmdline-tools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+        mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
+        
+        # 接受许可协议
+        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+        
+        echo "Android SDK installed at $ANDROID_SDK_ROOT"
       
-      # 步骤 4: 显示已安装的包信息
-      - name: Verify installation
-        run: |
-          rpm -qi ${{ github.event.inputs.package }} || echo "未找到包信息"
-          which ${{ github.event.inputs.package }} || echo "未找到可执行文件"
+    - name: Install Android NDK
+      run: |
+        mkdir -p $ANDROID_NDK_HOME
+        wget https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip -O ndk.zip
+        unzip ndk.zip -d /tmp
+        mv /tmp/android-ndk-${NDK_VERSION}/* $ANDROID_NDK_HOME
+        rm ndk.zip
+        
+        # 验证NDK安装
+        $ANDROID_NDK_HOME/ndk-build --version
+        echo "NDK installed at $ANDROID_NDK_HOME"
       
-      # 步骤 5: 条件步骤 - 运行测试
-      - name: Run tests (conditional)
-        if: ${{ github.event.inputs.run_tests == true }}
-        run: |
-          echo "运行测试套件..."
-          # 示例测试命令
-          ${{ github.event.inputs.package }} -v
-          echo "测试完成!"
+    - name: Checkout Doubango source
+      run: |
+        git clone https://github.com/DoubangoTelecom/doubango.git $DOUBANGO_SOURCE
+        cd $DOUBANGO_SOURCE
+        git checkout master
+        git pull
+        echo "Doubango source at: $DOUBANGO_SOURCE"
       
-      # 步骤 6: 保存工作空间为制品 - 使用 v4 版本
-      - name: Upload workspace as artifact
-        if: always()  # 即使失败也上传
-        uses: actions/upload-artifact@v4  # 使用最新 v4 版本
-        with:
-          name: rocky-${{ github.event.inputs.rocky_version }}-workspace
-          path: ${{ github.workspace }}
-          retention-days: 1
+    - name: Prepare NDK toolchains (Doubango compatibility fix)
+      run: |
+        cd $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+        ln -sf aarch64-linux-android21-clang++ aarch64-linux-android-clang++ || true
+        ln -sf armv7a-linux-androideabi21-clang++ arm-linux-androideabi-clang++ || true
+        echo "Created NDK toolchain symlinks"
       
-      # 步骤 7: 添加自定义日志输出
-      - name: Generate summary report
-        run: |
-          echo "### Rocky Linux 工作流报告" >> $GITHUB_STEP_SUMMARY
-          echo "- **操作系统**: Rocky Linux ${{ github.event.inputs.rocky_version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **安装的包**: ${{ github.event.inputs.package }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **测试执行**: ${{ github.event.inputs.run_tests }}" >> $GITHUB_STEP_SUMMARY
-          echo "![Rocky Logo](https://rockylinux.org/images/logo.svg)" >> $GITHUB_STEP_SUMMARY
+    - name: Configure and build Doubango
+      run: |
+        cd $DOUBANGO_SOURCE
+        
+        # 运行autogen
+        ./autogen.sh
+        
+        # 配置编译选项
+        CONFIGURE_FLAGS="--with-android \
+          --with-sdk=$ANDROID_SDK_ROOT \
+          --with-ndk=$ANDROID_NDK_HOME \
+          --with-abi=$ANDROID_ABI \
+          --prefix=$DOUBANGO_OUTPUT"
+        
+        # 添加调试选项
+        if [ "$ENABLE_DEBUG" = "true" ]; then
+          CONFIGURE_FLAGS+=" --enable-debug"
+        fi
+        
+        echo "Configure flags: $CONFIGURE_FLAGS"
+        
+        # 运行配置
+        ./configure $CONFIGURE_FLAGS
+        
+        # 编译并安装
+        make -j$(nproc)
+        make install
+        
+        # 验证编译结果
+        find $DOUBANGO_OUTPUT -name "*.so" -o -name "*.a" | xargs -I {} ls -lh {}
+        echo "Build completed successfully!"
+      
+    - name: Collect artifacts
+      run: |
+        mkdir -p /github/workspace/artifacts
+        cp -r $DOUBANGO_OUTPUT/* /github/workspace/artifacts/
+        
+        # 创建版本信息文件
+        echo "Doubango Build Report" > /github/workspace/artifacts/build-info.txt
+        echo "Build Date: $(date)" >> /github/workspace/artifacts/build-info.txt
+        echo "Android ABI: $ANDROID_ABI" >> /github/workspace/artifacts/build-info.txt
+        echo "NDK Version: $NDK_VERSION" >> /github/workspace/artifacts/build-info.txt
+        echo "Rocky Linux Version: $ROCKY_VERSION" >> /github/workspace/artifacts/build-info.txt
+        echo "Debug Symbols Enabled: $ENABLE_DEBUG" >> /github/workspace/artifacts/build-info.txt
+        $ANDROID_NDK_HOME/ndk-build --version >> /github/workspace/artifacts/build-info.txt
+      
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: doubango-build-${{ github.event.inputs.android_abi }}-${{ github.event.inputs.ndk_version }}
+        path: artifacts
+        retention-days: 7
+      
+    - name: Generate build summary
+      run: |
+        echo "### Doubango 编译报告" >> $GITHUB_STEP_SUMMARY
+        echo "**Android ABI**: $ANDROID_ABI" >> $GITHUB_STEP_SUMMARY
+        echo "**NDK 版本**: $NDK_VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "**Rocky Linux 版本**: $ROCKY_VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "**调试符号**: $ENABLE_DEBUG" >> $GITHUB_STEP_SUMMARY
+        echo "**编译时间**: $(date)" >> $GITHUB_STEP_SUMMARY
+        
+        echo "#### 包含的库文件" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        find artifacts -name "*.so" -o -name "*.a" | sort >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        
+        echo "#### 下载产物" >> $GITHUB_STEP_SUMMARY
+        echo "工作流完成后，在 Artifacts 区域下载编译结果" >> $GITHUB_STEP_SUMMARY
