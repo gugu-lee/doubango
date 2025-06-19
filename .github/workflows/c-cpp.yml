@@ -1,4 +1,4 @@
-name: Rocky Linux Manual Workflow
+name: Rocky Linux Manual Workflow (Updated)
 
 on:
   workflow_dispatch:   # 允许手动触发
@@ -12,17 +12,21 @@ on:
         type: boolean
         default: true
         required: false
+      rocky_version:
+        description: 'Rocky Linux 版本 (8 或 9)'
+        default: '9'
+        required: true
 
 jobs:
   rocky-linux-container-job:
     runs-on: ubuntu-latest   # 使用 GitHub 托管的 Ubuntu 运行器
     
-    # 指定 Rocky Linux 容器
+    # 动态选择 Rocky Linux 版本
     container:
-      image: rockylinux:9
-      options: --privileged  # 启用特权模式（可选）
+      image: rockylinux:${{ github.event.inputs.rocky_version }}
+      options: --privileged  # 启用特权模式
       env:
-        ROCKY_VERSION: 9
+        ROCKY_VERSION: ${{ github.event.inputs.rocky_version }}
     
     steps:
       # 步骤 1: 检出代码
@@ -35,6 +39,7 @@ jobs:
           echo "运行在 Rocky Linux $ROCKY_VERSION"
           cat /etc/os-release
           uname -a
+          dnf --version
       
       # 步骤 3: 安装用户指定的软件包
       - name: Install requested package
@@ -55,14 +60,24 @@ jobs:
         if: ${{ github.event.inputs.run_tests == true }}
         run: |
           echo "运行测试套件..."
-          # 这里是你的测试命令
+          # 示例测试命令
+          ${{ github.event.inputs.package }} -v
           echo "测试完成!"
       
-      # 步骤 6: 保存工作空间为制品（可选）
+      # 步骤 6: 保存工作空间为制品 - 使用 v4 版本
       - name: Upload workspace as artifact
         if: always()  # 即使失败也上传
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # 使用最新 v4 版本
         with:
-          name: rocky-workspace
+          name: rocky-${{ github.event.inputs.rocky_version }}-workspace
           path: ${{ github.workspace }}
           retention-days: 1
+      
+      # 步骤 7: 添加自定义日志输出
+      - name: Generate summary report
+        run: |
+          echo "### Rocky Linux 工作流报告" >> $GITHUB_STEP_SUMMARY
+          echo "- **操作系统**: Rocky Linux ${{ github.event.inputs.rocky_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **安装的包**: ${{ github.event.inputs.package }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **测试执行**: ${{ github.event.inputs.run_tests }}" >> $GITHUB_STEP_SUMMARY
+          echo "![Rocky Logo](https://rockylinux.org/images/logo.svg)" >> $GITHUB_STEP_SUMMARY
