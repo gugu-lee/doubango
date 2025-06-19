@@ -1,0 +1,68 @@
+name: Rocky Linux Manual Workflow
+
+on:
+  workflow_dispatch:   # 允许手动触发
+    inputs:
+      package:
+        description: '要安装的软件包'
+        required: true
+        default: 'nginx'
+      run_tests:
+        description: '是否运行测试 (true/false)'
+        type: boolean
+        default: true
+        required: false
+
+jobs:
+  rocky-linux-container-job:
+    runs-on: ubuntu-latest   # 使用 GitHub 托管的 Ubuntu 运行器
+    
+    # 指定 Rocky Linux 容器
+    container:
+      image: rockylinux:9
+      options: --privileged  # 启用特权模式（可选）
+      env:
+        ROCKY_VERSION: 9
+    
+    steps:
+      # 步骤 1: 检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # 步骤 2: 显示系统信息
+      - name: Show Rocky Linux version
+        run: |
+          echo "运行在 Rocky Linux $ROCKY_VERSION"
+          cat /etc/os-release
+          uname -a
+      
+      # 步骤 3: 安装用户指定的软件包
+      - name: Install requested package
+        run: |
+          echo "正在安装包: ${{ github.event.inputs.package }}"
+          dnf update -y
+          dnf install -y ${{ github.event.inputs.package }}
+          dnf clean all
+      
+      # 步骤 4: 显示已安装的包信息
+      - name: Verify installation
+        run: |
+          rpm -qi ${{ github.event.inputs.package }} || echo "未找到包信息"
+          which ${{ github.event.inputs.package }} || echo "未找到可执行文件"
+      
+      # 步骤 5: 条件步骤 - 运行测试
+      - name: Run tests (conditional)
+        if: ${{ github.event.inputs.run_tests == true }}
+        run: |
+          echo "运行测试套件..."
+          # 这里是你的测试命令
+          echo "测试完成!"
+      
+      # 步骤 6: 保存工作空间为制品（可选）
+      - name: Upload workspace as artifact
+        if: always()  # 即使失败也上传
+        uses: actions/upload-artifact@v3
+        with:
+          name: rocky-workspace
+          path: ${{ github.workspace }}
+          retention-days: 1
