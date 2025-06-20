@@ -9,7 +9,7 @@ ifeq ($(ANDROID_SDK_ROOT),)
 	export ANDROID_SDK_ROOT=/opt/android-sdk
 endif
 ifeq ($(ANDROID_PLATFORM),)
-	export ANDROID_PLATFORM=android-9
+	export ANDROID_PLATFORM=android-21
 endif
 ifeq ($(ANDROID_HOST),)
 	export ANDROID_HOST=linux-x86_64
