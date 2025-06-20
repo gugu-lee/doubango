@@ -72,7 +72,7 @@ jobs:
           python3-devel \
           glibc-langpack-en \
           java-11-openjdk-devel \
-          pcre-devel \
+          pcre2-devel \
           openssl-devel
         
         # 设置语言环境
@@ -124,6 +124,8 @@ jobs:
         unzip ndk.zip -d /tmp
         mv /tmp/android-ndk-${NDK_VERSION}/* $ANDROID_NDK_HOME
         rm ndk.zip
+        NDK=$ANDROID_NDK_HOME
+        export $NDK
         
         # 验证NDK安装
         $ANDROID_NDK_HOME/ndk-build --version
