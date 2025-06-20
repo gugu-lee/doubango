@@ -120,7 +120,7 @@ jobs:
         
         # 运行autogen
         ./autogen.sh
-        cd binding
+        cd bindings
         ./autogen.sh
         cd ..
         ./android_build.sh
