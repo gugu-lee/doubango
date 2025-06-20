@@ -3,16 +3,16 @@
 ######
 
 ifeq ($(ANDROID_NDK_ROOT),)
-	export ANDROID_NDK_ROOT=/cygdrive/c/android-ndk-r7c
+	export ANDROID_NDK_ROOT=/opt/android-sdk/ndk/21.0.6113669
 endif
 ifeq ($(ANDROID_SDK_ROOT),)
-	export ANDROID_SDK_ROOT=/cygdrive/c/android-sdk
+	export ANDROID_SDK_ROOT=/opt/android-sdk
 endif
 ifeq ($(ANDROID_PLATFORM),)
-	export ANDROID_PLATFORM=android-3
+	export ANDROID_PLATFORM=android-9
 endif
 ifeq ($(ANDROID_HOST),)
-	export ANDROID_HOST=windows
+	export ANDROID_HOST=linux-x86_64
 endif
 ifeq ($(NEON), yes)
 	export MARCH=armv7-a
