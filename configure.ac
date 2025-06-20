@@ -73,7 +73,7 @@ if test "$target_os" = "android"; then
 			export ANDROID_PREFIX=aarch64-linux-android
 			export SYSROOT=$NDK/platforms/android-9/arch-arm64
 			export ANDROID_TOOLCHAIN=$(pwd)/my-android-toolchain-android-arm64
-    			$NDK/build/tools/make-standalone-toolchain.sh --arch=arm64 --platform=android-21  --install-dir=$ANDROID_TOOLCHAIN
+    			$NDK/build/tools/make-standalone-toolchain.sh --verbose --arch=arm64 --platform=android-21  --install-dir=$ANDROID_TOOLCHAIN
 			export CFLAGS='-DANDROID=1 -D__ARMEL__'
 			AC_SUBST(TARGET_ARCH, "arm")
 		;;
