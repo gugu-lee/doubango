@@ -34,7 +34,7 @@ jobs:
     env:
       ANDROID_SDK_ROOT: /opt/android-sdk
       ANDROID_NDK_HOME: /opt/android-ndk
-      DOUBANGO_SOURCE: /doubango
+      DOUBANGO_SOURCE: ${{ github.workspace }}  # 使用当前仓库代码
       DOUBANGO_OUTPUT: /output
       ANDROID_ABI: ${{ github.event.inputs.android_abi }}
       NDK_VERSION: ${{ github.event.inputs.ndk_version }}
@@ -43,6 +43,9 @@ jobs:
       SWIG_VERSION: ${{ github.event.inputs.swig_version }}
     
     steps:
+    - name: Checkout current repository (forked)
+      uses: actions/checkout@v4
+      
     - name: Print build parameters
       run: |
         echo "### 编译参数"
@@ -53,6 +56,7 @@ jobs:
         echo "SWIG Version: $SWIG_VERSION"
         echo "Container OS: $(cat /etc/os-release | grep PRETTY_NAME)"
         echo "###"
+        echo "Doubango source at: $DOUBANGO_SOURCE"
       
     - name: Install system dependencies
       run: |
@@ -72,7 +76,6 @@ jobs:
           python3-devel \
           glibc-langpack-en \
           java-11-openjdk-devel \
-          pcre2-devel \
           openssl-devel
         
         # 设置语言环境
@@ -84,9 +87,18 @@ jobs:
         make --version
         g++ --version
       
+    - name: Install PCRE2 development package
+      run: |
+        # 安装PCRE2开发包（SWIG依赖）
+        dnf install -y pcre2-devel
+        
+        # 验证PCRE2安装
+        pcre2-config --version
+        echo "PCRE2 development package installed"
+      
     - name: Install SWIG from source
       run: |
-        # 安装编译SWIG的依赖
+        # 安装编译SWIG的其他依赖
         dnf install -y byacc
         
         # 下载并编译SWIG
@@ -124,19 +136,10 @@ jobs:
         unzip ndk.zip -d /tmp
         mv /tmp/android-ndk-${NDK_VERSION}/* $ANDROID_NDK_HOME
         rm ndk.zip
-        export NDK=$ANDROID_NDK_HOME
         
         # 验证NDK安装
         $ANDROID_NDK_HOME/ndk-build --version
         echo "NDK installed at $ANDROID_NDK_HOME"
-      
-    - name: Checkout Doubango source
-      run: |
-        git clone https://github.com/DoubangoTelecom/doubango.git $DOUBANGO_SOURCE
-        cd $DOUBANGO_SOURCE
-        git checkout master
-        git pull
-        echo "Doubango source at: $DOUBANGO_SOURCE"
       
     - name: Prepare NDK toolchains (Doubango compatibility fix)
       run: |
@@ -149,29 +152,22 @@ jobs:
       run: |
         cd $DOUBANGO_SOURCE
         
-        # 运行autogen
+        # 导出 NDK 环境变量（关键变更）
+        export NDK=$ANDROID_NDK_HOME
+        echo "Exported NDK environment variable: $NDK"
+        
+        # 运行autogen脚本序列
         ./autogen.sh
+        cd bindings
+        ./autogen.sh
+        cd ..
         
-        # 配置编译选项
-        CONFIGURE_FLAGS="--with-android \
-          --with-sdk=$ANDROID_SDK_ROOT \
-          --with-ndk=$ANDROID_NDK_HOME \
-          --with-abi=$ANDROID_ABI \
-          --prefix=$DOUBANGO_OUTPUT"
+        # 执行Android构建脚本
+        ./android_build.sh
         
-        # 添加调试选项
-        if [ "$ENABLE_DEBUG" = "true" ]; then
-          CONFIGURE_FLAGS+=" --enable-debug"
-        fi
-        
-        echo "Configure flags: $CONFIGURE_FLAGS"
-        
-        # 运行配置
-        ./configure $CONFIGURE_FLAGS
-        
-        # 编译并安装
-        make -j$(nproc)
-        make install
+        # 安装编译产物
+        mkdir -p $DOUBANGO_OUTPUT
+        cp -r bin/* $DOUBANGO_OUTPUT/
         
         # 验证编译结果
         find $DOUBANGO_OUTPUT -name "*.so" -o -name "*.a" | xargs -I {} ls -lh {}
@@ -190,6 +186,7 @@ jobs:
         echo "Rocky Linux Version: $ROCKY_VERSION" >> /github/workspace/artifacts/build-info.txt
         echo "Debug Symbols Enabled: $ENABLE_DEBUG" >> /github/workspace/artifacts/build-info.txt
         echo "SWIG Version: $SWIG_VERSION" >> /github/workspace/artifacts/build-info.txt
+        echo "PCRE2 Version: $(pcre2-config --version)" >> /github/workspace/artifacts/build-info.txt
         $ANDROID_NDK_HOME/ndk-build --version >> /github/workspace/artifacts/build-info.txt
       
     - name: Upload artifacts
@@ -207,6 +204,7 @@ jobs:
         echo "**Rocky Linux 版本**: $ROCKY_VERSION" >> $GITHUB_STEP_SUMMARY
         echo "**调试符号**: $ENABLE_DEBUG" >> $GITHUB_STEP_SUMMARY
         echo "**SWIG 版本**: $SWIG_VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "**PCRE2 版本**: $(pcre2-config --version)" >> $GITHUB_STEP_SUMMARY
         echo "**编译时间**: $(date)" >> $GITHUB_STEP_SUMMARY
         
         echo "#### 包含的库文件" >> $GITHUB_STEP_SUMMARY
