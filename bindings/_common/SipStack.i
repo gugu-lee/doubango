@@ -318,11 +318,11 @@ typedef enum tmedia_t140_data_type_e
 tmedia_t140_data_type_t;
 
 /* ====== From "tinymedia/tmedia_common.h"  ====== */
-#typedef enum tmedia_rtcp_event_type_e
-#{
-#	tmedia_rtcp_event_type_fir, // Full Intra Refresh
-#}
-#tmedia_rtcp_event_type_t;
+typedef enum tmedia_rtcp_event_type_e
+{
+	tmedia_rtcp_event_type_fir, // Full Intra Refresh
+}
+tmedia_rtcp_event_type_t;
 
 /* ====== From "tinymedia/tmedia_common.h"  ====== */
 typedef enum tmedia_profile_e
