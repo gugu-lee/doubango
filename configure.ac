@@ -107,7 +107,7 @@ if test "$target_os" = "android"; then
 
 	AC_SUBST(NDK, $NDK)
 	
-	export CFLAGS="${CFLAGS} -fexception -fPIC"
+	export CFLAGS="${CFLAGS} -fexceptions -fPIC"
 	export CPPFLAGS=$CFLAGS
 	export LDFLAGS="${LDFLAGS} -lc -lm -lgcc"
 
