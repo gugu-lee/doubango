@@ -31,7 +31,7 @@ jobs:
       ANDROID_SDK_ROOT: /opt/android-sdk
       ANDROID_NDK_HOME: /opt/android-ndk
       DOUBANGO_SOURCE: /doubango
-      DOUBANGO_OUTPUT: /output
+      DOUBANGO_OUTPUT: /doubango/android-projects/output/gpl
       ANDROID_ABI: ${{ github.event.inputs.android_abi }}
       NDK_VERSION: ${{ github.event.inputs.ndk_version }}
       ROCKY_VERSION: ${{ github.event.inputs.rocky_version }}
@@ -120,27 +120,31 @@ jobs:
         
         # 运行autogen
         ./autogen.sh
+        cd binding
+        ./autogen.sh
+        cd ..
+        ./android_build.sh
+
+        # # 配置编译选项
+        # CONFIGURE_FLAGS="--with-android \
+        #   --with-sdk=$ANDROID_SDK_ROOT \
+        #   --with-ndk=$ANDROID_NDK_HOME \
+        #   --with-abi=$ANDROID_ABI \
+        #   --prefix=$DOUBANGO_OUTPUT"
         
-        # 配置编译选项
-        CONFIGURE_FLAGS="--with-android \
-          --with-sdk=$ANDROID_SDK_ROOT \
-          --with-ndk=$ANDROID_NDK_HOME \
-          --with-abi=$ANDROID_ABI \
-          --prefix=$DOUBANGO_OUTPUT"
+        # # 添加调试选项
+        # if [ "$ENABLE_DEBUG" = "true" ]; then
+        #   CONFIGURE_FLAGS+=" --enable-debug"
+        # fi
         
-        # 添加调试选项
-        if [ "$ENABLE_DEBUG" = "true" ]; then
-          CONFIGURE_FLAGS+=" --enable-debug"
-        fi
+        # echo "Configure flags: $CONFIGURE_FLAGS"
         
-        echo "Configure flags: $CONFIGURE_FLAGS"
+        # # 运行配置
+        # ./configure $CONFIGURE_FLAGS
         
-        # 运行配置
-        ./configure $CONFIGURE_FLAGS
-        
-        # 编译并安装
-        make -j$(nproc)
-        make install
+        # # 编译并安装
+        # make -j$(nproc)
+        # make install
         
         # 验证编译结果
         find $DOUBANGO_OUTPUT -name "*.so" -o -name "*.a" | xargs -I {} ls -lh {}
