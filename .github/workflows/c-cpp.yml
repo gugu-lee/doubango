@@ -205,24 +205,24 @@ jobs:
         cd ..
         
         # 执行Android构建脚本
-        # ./android_build.sh
+        ./android_build.sh
 
         # 执行Android构建脚本并添加详细日志
-        {
-        set -x
-        ./android_build.sh \
-          --arch $ANDROID_ABI \
-          --api $ANDROID_API_LEVEL \
-          --toolchain $STANDALONE_TOOLCHAIN_PATH
-        set +x
-        } 2>&1 | tee build.log
+        # {
+        # set -x
+        # ./android_build.sh \
+        #   --arch $ANDROID_ABI \
+        #   --api $ANDROID_API_LEVEL \
+        #   --toolchain $STANDALONE_TOOLCHAIN_PATH
+        # set +x
+        # } 2>&1 | tee build.log
     
-        # 检查构建状态
-        if [ ${PIPESTATUS[0]} -ne 0 ]; then
-          echo "Build failed! Showing last 100 lines of build.log:"
-          tail -n 100 build.log
-          exit 1
-        fi
+        # # 检查构建状态
+        # if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        #   echo "Build failed! Showing last 100 lines of build.log:"
+        #   tail -n 100 build.log
+        #   exit 1
+        # fi
         
         # 安装编译产物
         mkdir -p $DOUBANGO_OUTPUT
