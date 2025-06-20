@@ -140,6 +140,15 @@ jobs:
         # 验证NDK安装
         $ANDROID_NDK_HOME/ndk-build --version
         echo "NDK installed at $ANDROID_NDK_HOME"
+        
+        # 检查关键文件是否存在
+        if [ -f "$ANDROID_NDK_HOME/build/tools/make-standalone-toolchain.sh" ]; then
+          echo "make-standalone-toolchain.sh found in NDK"
+        else
+          echo "ERROR: make-standalone-toolchain.sh not found in NDK!"
+          echo "This file is required for Doubango builds. Please check NDK version."
+          exit 1
+        fi
       
     - name: Prepare NDK toolchains (Doubango compatibility fix)
       run: |
@@ -152,9 +161,22 @@ jobs:
       run: |
         cd $DOUBANGO_SOURCE
         
-        # 导出 NDK 环境变量（关键变更）
+        # 导出 NDK 环境变量
         export NDK=$ANDROID_NDK_HOME
         echo "Exported NDK environment variable: $NDK"
+        
+        # 检查关键文件是否存在
+        TOOLCHAIN_SCRIPT="$NDK/build/tools/make-standalone-toolchain.sh"
+        echo "Checking for make-standalone-toolchain.sh at: $TOOLCHAIN_SCRIPT"
+        
+        if [ -f "$TOOLCHAIN_SCRIPT" ]; then
+          echo "make-standalone-toolchain.sh found. Proceeding with build."
+        else
+          echo "ERROR: make-standalone-toolchain.sh not found in NDK!"
+          echo "This file is required for Doubango builds. Please check NDK version."
+          ls -lR $NDK/build/tools/ || true
+          exit 1
+        fi
         
         # 运行autogen脚本序列
         ./autogen.sh
@@ -188,6 +210,7 @@ jobs:
         echo "SWIG Version: $SWIG_VERSION" >> /github/workspace/artifacts/build-info.txt
         echo "PCRE2 Version: $(pcre2-config --version)" >> /github/workspace/artifacts/build-info.txt
         $ANDROID_NDK_HOME/ndk-build --version >> /github/workspace/artifacts/build-info.txt
+        echo "make-standalone-toolchain.sh: $(ls -l $ANDROID_NDK_HOME/build/tools/make-standalone-toolchain.sh)" >> /github/workspace/artifacts/build-info.txt
       
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -206,6 +229,14 @@ jobs:
         echo "**SWIG 版本**: $SWIG_VERSION" >> $GITHUB_STEP_SUMMARY
         echo "**PCRE2 版本**: $(pcre2-config --version)" >> $GITHUB_STEP_SUMMARY
         echo "**编译时间**: $(date)" >> $GITHUB_STEP_SUMMARY
+        
+        # 检查文件是否存在并记录状态
+        TOOLCHAIN_SCRIPT="$ANDROID_NDK_HOME/build/tools/make-standalone-toolchain.sh"
+        if [ -f "$TOOLCHAIN_SCRIPT" ]; then
+          echo "**make-standalone-toolchain.sh**: 存在" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "**make-standalone-toolchain.sh**: ❌ 未找到" >> $GITHUB_STEP_SUMMARY
+        fi
         
         echo "#### 包含的库文件" >> $GITHUB_STEP_SUMMARY
         echo '```' >> $GITHUB_STEP_SUMMARY
