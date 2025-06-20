@@ -124,8 +124,7 @@ jobs:
         unzip ndk.zip -d /tmp
         mv /tmp/android-ndk-${NDK_VERSION}/* $ANDROID_NDK_HOME
         rm ndk.zip
-        NDK=$ANDROID_NDK_HOME
-        export $NDK
+        export NDK=$ANDROID_NDK_HOME
         
         # 验证NDK安装
         $ANDROID_NDK_HOME/ndk-build --version
