@@ -19,23 +19,28 @@ on:
         description: 'Enable debug symbols (true/false)'
         type: boolean
         default: true
+      swig_version:
+        description: 'SWIG version (e.g., 4.1.1)'
+        required: false
+        default: '4.1.1'
 
 jobs:
   build-doubango:
     runs-on: ubuntu-latest
     container:
       image: rockylinux:${{ github.event.inputs.rocky_version }}
-      options: --privileged  # 需要特权模式访问设备
+      options: --privileged
     
     env:
       ANDROID_SDK_ROOT: /opt/android-sdk
       ANDROID_NDK_HOME: /opt/android-ndk
       DOUBANGO_SOURCE: /doubango
-      DOUBANGO_OUTPUT: /doubango/android-projects/output/gpl
+      DOUBANGO_OUTPUT: /output
       ANDROID_ABI: ${{ github.event.inputs.android_abi }}
       NDK_VERSION: ${{ github.event.inputs.ndk_version }}
       ROCKY_VERSION: ${{ github.event.inputs.rocky_version }}
       ENABLE_DEBUG: ${{ github.event.inputs.enable_debug }}
+      SWIG_VERSION: ${{ github.event.inputs.swig_version }}
     
     steps:
     - name: Print build parameters
@@ -45,6 +50,7 @@ jobs:
         echo "NDK Version: $NDK_VERSION"
         echo "Rocky Linux Version: $ROCKY_VERSION"
         echo "Debug Symbols: $ENABLE_DEBUG"
+        echo "SWIG Version: $SWIG_VERSION"
         echo "Container OS: $(cat /etc/os-release | grep PRETTY_NAME)"
         echo "###"
       
@@ -63,8 +69,11 @@ jobs:
           tar \
           git \
           python3 \
+          python3-devel \
           glibc-langpack-en \
-          java-11-openjdk-devel
+          java-11-openjdk-devel \
+          pcre-devel \
+          openssl-devel
         
         # 设置语言环境
         export LANG=en_US.UTF-8
@@ -74,6 +83,27 @@ jobs:
         automake --version
         make --version
         g++ --version
+      
+    - name: Install SWIG from source
+      run: |
+        # 安装编译SWIG的依赖
+        dnf install -y byacc
+        
+        # 下载并编译SWIG
+        SWIG_VERSION="$SWIG_VERSION"
+        wget https://github.com/swig/swig/archive/refs/tags/v${SWIG_VERSION}.tar.gz
+        tar xzf v${SWIG_VERSION}.tar.gz
+        cd swig-${SWIG_VERSION}
+        
+        # 配置和编译
+        ./autogen.sh
+        ./configure --prefix=/usr/local
+        make -j$(nproc)
+        make install
+        
+        # 验证安装
+        swig -version | head -n 1
+        echo "SWIG installed at $(which swig)"
       
     - name: Setup Android SDK
       run: |
@@ -120,31 +150,27 @@ jobs:
         
         # 运行autogen
         ./autogen.sh
-        cd bindings
-        ./autogen.sh
-        cd ..
-        ./android_build.sh
-
-        # # 配置编译选项
-        # CONFIGURE_FLAGS="--with-android \
-        #   --with-sdk=$ANDROID_SDK_ROOT \
-        #   --with-ndk=$ANDROID_NDK_HOME \
-        #   --with-abi=$ANDROID_ABI \
-        #   --prefix=$DOUBANGO_OUTPUT"
         
-        # # 添加调试选项
-        # if [ "$ENABLE_DEBUG" = "true" ]; then
-        #   CONFIGURE_FLAGS+=" --enable-debug"
-        # fi
+        # 配置编译选项
+        CONFIGURE_FLAGS="--with-android \
+          --with-sdk=$ANDROID_SDK_ROOT \
+          --with-ndk=$ANDROID_NDK_HOME \
+          --with-abi=$ANDROID_ABI \
+          --prefix=$DOUBANGO_OUTPUT"
         
-        # echo "Configure flags: $CONFIGURE_FLAGS"
+        # 添加调试选项
+        if [ "$ENABLE_DEBUG" = "true" ]; then
+          CONFIGURE_FLAGS+=" --enable-debug"
+        fi
         
-        # # 运行配置
-        # ./configure $CONFIGURE_FLAGS
+        echo "Configure flags: $CONFIGURE_FLAGS"
         
-        # # 编译并安装
-        # make -j$(nproc)
-        # make install
+        # 运行配置
+        ./configure $CONFIGURE_FLAGS
+        
+        # 编译并安装
+        make -j$(nproc)
+        make install
         
         # 验证编译结果
         find $DOUBANGO_OUTPUT -name "*.so" -o -name "*.a" | xargs -I {} ls -lh {}
@@ -162,6 +188,7 @@ jobs:
         echo "NDK Version: $NDK_VERSION" >> /github/workspace/artifacts/build-info.txt
         echo "Rocky Linux Version: $ROCKY_VERSION" >> /github/workspace/artifacts/build-info.txt
         echo "Debug Symbols Enabled: $ENABLE_DEBUG" >> /github/workspace/artifacts/build-info.txt
+        echo "SWIG Version: $SWIG_VERSION" >> /github/workspace/artifacts/build-info.txt
         $ANDROID_NDK_HOME/ndk-build --version >> /github/workspace/artifacts/build-info.txt
       
     - name: Upload artifacts
@@ -178,6 +205,7 @@ jobs:
         echo "**NDK 版本**: $NDK_VERSION" >> $GITHUB_STEP_SUMMARY
         echo "**Rocky Linux 版本**: $ROCKY_VERSION" >> $GITHUB_STEP_SUMMARY
         echo "**调试符号**: $ENABLE_DEBUG" >> $GITHUB_STEP_SUMMARY
+        echo "**SWIG 版本**: $SWIG_VERSION" >> $GITHUB_STEP_SUMMARY
         echo "**编译时间**: $(date)" >> $GITHUB_STEP_SUMMARY
         
         echo "#### 包含的库文件" >> $GITHUB_STEP_SUMMARY
