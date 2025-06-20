@@ -81,6 +81,7 @@ jobs:
         
         # 设置语言环境
         export LANG=en_US.UTF-8
+        ln -sf /usr/bin/python3 /usr/bin/python
         
         # 验证安装
         autoconf --version
