@@ -26,7 +26,7 @@ then
 	exit 1;
 fi
 export ANDROID_NDK_ROOT=$NDK
-
+echo $ANDROID_NDK_ROOT
 if [ x$1 = "xcommercial" ]
 then
 	echo "************************"
