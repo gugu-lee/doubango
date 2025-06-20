@@ -30,8 +30,8 @@ jobs:
     env:
       ANDROID_SDK_ROOT: /opt/android-sdk
       # 明确定义 NDK 环境变量
-      ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/21.0.6113669
-      NDK: ${{ env.ANDROID_SDK_ROOT }}/ndk/21.0.6113669  # NDK 别名
+      ANDROID_NDK_HOME: /opt/android-sdk/ndk/21.0.6113669
+      NDK: /opt/android-sdk/ndk/21.0.6113669  # NDK 别名
       DOUBANGO_SOURCE: ${{ github.workspace }}
       DOUBANGO_OUTPUT: /output
       ANDROID_ABI: ${{ github.event.inputs.android_abi }}
