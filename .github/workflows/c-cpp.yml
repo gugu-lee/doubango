@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: rockylinux:${{ github.event.inputs.rocky_version }}
-      options: --privileged
+      options: --user root
     
     env:
       ANDROID_SDK_ROOT: /opt/android-sdk
@@ -57,6 +57,7 @@ jobs:
         echo "Doubango source at: $DOUBANGO_SOURCE"
         echo "Android NDK HOME: $ANDROID_NDK_HOME"
         echo "NDK variable: $NDK"
+        echo "Current user: $(whoami)"
       
     - name: Install system dependencies
       run: |
