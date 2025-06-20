@@ -27,7 +27,7 @@ then
 fi
 export ANDROID_NDK_ROOT=$NDK
 echo $ANDROID_NDK_ROOT
-ls -l $ANDROID_NDK_ROOT\platforms
+ls -l $ANDROID_NDK_ROOT/platforms
 if [ x$1 = "xcommercial" ]
 then
 	echo "************************"
