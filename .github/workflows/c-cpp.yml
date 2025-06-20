@@ -144,16 +144,16 @@ jobs:
         ls -ld $ANDROID_NDK_HOME || echo "目录尚未创建"
         
         # 确保NDK目录存在
-        mkdir -p $ANDROID_NDK_HOME
-        if [ -d "$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" ]; then
-          echo "移动NDK到预定位置"
-          mv $ANDROID_SDK_ROOT/ndk/$NDK_VERSION/* $ANDROID_NDK_HOME/
-        else
-          echo "ERROR: NDK未安装在预期位置!"
-          echo "检查NDK安装目录:"
-          ls -lR $ANDROID_SDK_ROOT/ndk/ || true
-          exit 1
-        fi
+        # mkdir -p $ANDROID_NDK_HOME
+        # if [ -d "$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" ]; then
+        #   echo "移动NDK到预定位置"
+        #   #mv $ANDROID_SDK_ROOT/ndk/$NDK_VERSION/* $ANDROID_NDK_HOME/
+        # else
+        #   echo "ERROR: NDK未安装在预期位置!"
+        #   echo "检查NDK安装目录:"
+        #   ls -lR $ANDROID_SDK_ROOT/ndk/ || true
+        #   exit 1
+        # fi
         
         # 验证NDK安装
         $ANDROID_NDK_HOME/ndk-build --version
