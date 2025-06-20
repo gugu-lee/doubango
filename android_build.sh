@@ -27,6 +27,7 @@ then
 fi
 export ANDROID_NDK_ROOT=$NDK
 echo $ANDROID_NDK_ROOT
+ls -l $ANDROID_NDK_ROOT\platforms
 if [ x$1 = "xcommercial" ]
 then
 	echo "************************"
@@ -100,6 +101,8 @@ fi
 if [ x$SSL = "xno" ]; then
 	export OPTIONS="${OPTIONS} --without-ssl"
 fi
+
+
 #armv5te armv7-a armv7-a-neon x86 x64
 for arch in  arm64 
 do
