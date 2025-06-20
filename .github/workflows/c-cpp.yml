@@ -24,7 +24,7 @@ jobs:
   build-doubango:
     runs-on: ubuntu-latest
     container:
-      image: rockylinux:${{ github.event.inputs.rocky_version }}
+      image: oraclelinux:9 #rockylinux:${{ github.event.inputs.rocky_version }}
       options: --user root
     
     env:
