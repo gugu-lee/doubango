@@ -100,8 +100,8 @@ fi
 if [ x$SSL = "xno" ]; then
 	export OPTIONS="${OPTIONS} --without-ssl"
 fi
-
-for arch in armv5te armv7-a armv7-a-neon arm64 x86 x64
+#armv5te armv7-a armv7-a-neon x86 x64
+for arch in  arm64 
 do
 	if [ $arch = "x86" ]; then \
 	   export HOST=i686-linux-android; \
