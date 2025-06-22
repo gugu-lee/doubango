@@ -223,7 +223,7 @@ jobs:
       run: |
         mkdir -p /github/workspace/artifacts
         cp -r $DOUBANGO_OUTPUT/* /github/workspace/artifacts/
-        
+        ls -lh /github/workspace/artifacts/
         # 创建版本信息文件
         echo "Doubango Build Report" > /github/workspace/artifacts/build-info.txt
         echo "Build Date: $(date)" >> /github/workspace/artifacts/build-info.txt
