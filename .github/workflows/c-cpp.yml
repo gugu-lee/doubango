@@ -223,7 +223,7 @@ jobs:
       run: |
         mkdir -p /github/workspace/artifacts
         cp -r $DOUBANGO_OUTPUT/* /github/workspace/artifacts/
-        ls -lh /github/workspace/artifacts/
+        ls -lh /github/workspace/artifacts/arm64-v8a
         # 创建版本信息文件
         echo "Doubango Build Report" > /github/workspace/artifacts/build-info.txt
         echo "Build Date: $(date)" >> /github/workspace/artifacts/build-info.txt
@@ -254,14 +254,6 @@ jobs:
         echo "**SWIG 版本**: $SWIG_VERSION" >> $GITHUB_STEP_SUMMARY
         echo "**PCRE2 版本**: $(pcre2-config --version)" >> $GITHUB_STEP_SUMMARY
         echo "**编译时间**: $(date)" >> $GITHUB_STEP_SUMMARY
-        
-        # 检查文件是否存在并记录状态
-        TOOLCHAIN_SCRIPT="$NDK/build/tools/make-standalone-toolchain.sh"
-        if [ -f "$TOOLCHAIN_SCRIPT" ]; then
-          echo "**make-standalone-toolchain.sh**: 存在 ($(ls -l $TOOLCHAIN_SCRIPT | awk '{print $5}') 字节)" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "**make-standalone-toolchain.sh**: ❌ 未找到" >> $GITHUB_STEP_SUMMARY
-        fi
         
         echo "#### NDK 环境变量" >> $GITHUB_STEP_SUMMARY
         echo "ANDROID_NDK_HOME = $ANDROID_NDK_HOME" >> $GITHUB_STEP_SUMMARY
