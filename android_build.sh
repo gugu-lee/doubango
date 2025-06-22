@@ -103,8 +103,8 @@ if [ x$SSL = "xno" ]; then
 fi
 
 
-#armv5te armv7-a armv7-a-neon x86 x64
-for arch in  arm64 
+# armv5te armv7-a-neon
+for arch in  arm64 x64 x86 armv7-a  armv7-a-neon
 do
 	if [ $arch = "x86" ]; then \
 	   export HOST=i686-linux-android; \
@@ -139,9 +139,9 @@ mkdir -p $HOME/imsdroid/libs/mips
 # cp --force $HOME/armv5te/lib/libtinyWRAP.so.0.0.0 $HOME/imsdroid/libs/armeabi/libtinyWRAP.so
 # cp --force $HOME/armv5te/lib/libplugin_audio_opensles.so.0.0.0 $HOME/imsdroid/libs/armeabi/libplugin_audio_opensles.so
 
-# cp --force $HOME/armv7-a/lib/libtinyWRAP.so.0.0.0 $HOME/imsdroid/libs/armeabi-v7a/libtinyWRAP.so
-# cp --force $HOME/armv7-a/lib/libplugin_audio_opensles.so.0.0.0 $HOME/imsdroid/libs/armeabi-v7a/libplugin_audio_opensles.so
-# cp --force $HOME/armv7-a-neon/lib/libtinyWRAP.so.0.0.0 $HOME/imsdroid/libs/armeabi-v7a/libtinyWRAP_neon.so
+cp --force $HOME/armv7-a/lib/libtinyWRAP.so $HOME/imsdroid/libs/armeabi-v7a/libtinyWRAP.so
+cp --force $HOME/armv7-a/lib/libplugin_audio_opensles.so $HOME/imsdroid/libs/armeabi-v7a/libplugin_audio_opensles.so
+cp --force $HOME/armv7-a-neon/lib/libtinyWRAP.so $HOME/imsdroid/libs/armeabi-v7a/libtinyWRAP_neon.so
 
 # cp --force $HOME/arm64/lib/libtinyWRAP.so.0.0.0 $HOME/imsdroid/libs/arm64-v8a/libtinyWRAP.so
 # cp --force $HOME/arm64/lib/libplugin_audio_opensles.so.0.0.0 $HOME/imsdroid/libs/arm64-v8a/libplugin_audio_opensles.so
@@ -152,7 +152,13 @@ cp --force $HOME/arm64/lib/libplugin_audio_opensles.so $HOME/imsdroid/libs/arm64
 # cp --force $HOME/x86/lib/libtinyWRAP.so.0.0.0 $HOME/imsdroid/libs/x86/libtinyWRAP.so
 # cp --force $HOME/x86/lib/libplugin_audio_opensles.so.0.0.0 $HOME/imsdroid/libs/x86/libplugin_audio_opensles.so
 
+cp --force $HOME/x86/lib/libtinyWRAP.so  $HOME/imsdroid/libs/x86/libtinyWRAP.so
+cp --force $HOME/x86/lib/libplugin_audio_opensles.so $HOME/imsdroid/libs/x86/libplugin_audio_opensles.so
+
 # cp --force $HOME/x64/lib/libtinyWRAP.so.0.0.0 $HOME/imsdroid/libs/x86_64/libtinyWRAP.so
 # cp --force $HOME/x64/lib/libplugin_audio_opensles.so.0.0.0 $HOME/imsdroid/libs/x86_64/libplugin_audio_opensles.so
+
+cp --force $HOME/x64/lib/libtinyWRAP.so  $HOME/imsdroid/libs/x86_64/libtinyWRAP.so
+cp --force $HOME/x64/lib/libplugin_audio_opensles.so $HOME/imsdroid/libs/x86_64/libplugin_audio_opensles.so
 
 
