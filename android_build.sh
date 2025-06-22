@@ -103,8 +103,8 @@ if [ x$SSL = "xno" ]; then
 fi
 
 
-# armv5te armv7-a-neon
-for arch in  arm64 x64 x86 armv7-a  armv7-a-neon
+# armv5te armv7-a-neon  x86 armv7-a  armv7-a-neon
+for arch in  arm64 x64
 do
 	if [ $arch = "x86" ]; then \
 	   export HOST=i686-linux-android; \
