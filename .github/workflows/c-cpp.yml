@@ -236,12 +236,14 @@ jobs:
         $ANDROID_NDK_HOME/ndk-build --version >> /github/workspace/artifacts/build-info.txt
         echo "make-standalone-toolchain.sh: $(ls -l $NDK/build/tools/make-standalone-toolchain.sh)" >> /github/workspace/artifacts/build-info.txt
         echo "NDK环境变量: $NDK" >> /github/workspace/artifacts/build-info.txt
-      
+    - name: List artifacts
+      run: |
+        ls -lR artifacts || echo "artifacts directory not found"
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: doubango-build-${{ github.event.inputs.android_abi }}-${{ env.NDK_VERSION }}
-        path: artifacts
+        path: /github/workspace/artifacts
         retention-days: 7
       
     - name: Generate build summary
