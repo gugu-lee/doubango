@@ -146,8 +146,8 @@ mkdir -p $HOME/imsdroid/libs/mips
 # cp --force $HOME/arm64/lib/libtinyWRAP.so.0.0.0 $HOME/imsdroid/libs/arm64-v8a/libtinyWRAP.so
 # cp --force $HOME/arm64/lib/libplugin_audio_opensles.so.0.0.0 $HOME/imsdroid/libs/arm64-v8a/libplugin_audio_opensles.so
 
-cp --force $HOME/android-projects/output/gpl/arm64/lib/libtinyWRAP.so  $HOME/imsdroid/libs/arm64-v8a/libtinyWRAP.so
-cp --force $HOME/android-projects/output/gpl/arm64/lib/libplugin_audio_opensles.so.0.0.0 $HOME/imsdroid/libs/arm64-v8a/libplugin_audio_opensles.so
+cp --force $HOME/arm64/lib/libtinyWRAP.so  $HOME/imsdroid/libs/arm64-v8a/libtinyWRAP.so
+cp --force $HOME/arm64/lib/libplugin_audio_opensles.so.0.0.0 $HOME/imsdroid/libs/arm64-v8a/libplugin_audio_opensles.so
 
 # cp --force $HOME/x86/lib/libtinyWRAP.so.0.0.0 $HOME/imsdroid/libs/x86/libtinyWRAP.so
 # cp --force $HOME/x86/lib/libplugin_audio_opensles.so.0.0.0 $HOME/imsdroid/libs/x86/libplugin_audio_opensles.so
