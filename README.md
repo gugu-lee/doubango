@@ -1,4 +1,9 @@
 <h2>Welcome to <a href='https://www.doubango.org'>doubango</a> project!</h2>
+
+<p>
+  add a github action file for android x86_64 and arm64.
+</p>
+
 <p><a href='http://en.wikipedia.org/wiki/IP_Multimedia_Subsystem'>3GPP IMS</a> (IP Multimedia Subsystem) is the next generation network for delivering<br>
 IP multimedia services. IMS is standardized by the 3rd Generation Partnership Project (3GPP). <br />
 IMS services could be used over any type of network, such as <a href='http://en.wikipedia.org/wiki/3GPP_Long_Term_Evolution'>3GPP LTE</a>, GPRS, Wireless LAN, CDMA2000 or fixed line.<br>
