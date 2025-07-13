@@ -1,7 +1,12 @@
 <h2>Welcome to <a href='https://www.doubango.org'>doubango</a> project!</h2>
 
-<p>
-  add a github action file for android x86_64 and arm64.
+<p style="">
+  <bold>
+ 
+  -------------------------------- <br/>
+  add a github action file for android x86_64 and arm64. <br/>
+  --------------------------------
+   </bold>
 </p>
 
 <p><a href='http://en.wikipedia.org/wiki/IP_Multimedia_Subsystem'>3GPP IMS</a> (IP Multimedia Subsystem) is the next generation network for delivering<br>
