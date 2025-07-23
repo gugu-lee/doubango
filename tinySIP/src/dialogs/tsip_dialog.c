@@ -585,7 +585,6 @@ int tsip_dialog_response_send(const tsip_dialog_t *self, tsip_response_t* respon
             ANDROID_DEBUG_INFO("  - Status Code: %d", response->line.response.status_code);
             TSK_DEBUG_INFO("  - Reason Phrase: %s", response->line.response.reason_phrase ? response->line.response.reason_phrase : "NULL");
             ANDROID_DEBUG_INFO("  - Reason Phrase: %s", response->line.response.reason_phrase ? response->line.response.reason_phrase : "NULL");
-            TSK_DEBUG_INFO("  - SIP Version: %s", response->line.response.version ? response->line.response.version : "NULL");
             
             // 打印 Call-ID
             if(response->Call_ID) {
