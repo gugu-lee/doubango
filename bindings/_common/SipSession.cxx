@@ -811,9 +811,17 @@ bool MessagingSession::send(const void* payload, unsigned len, ActionConfig* con
 bool MessagingSession::accept(ActionConfig* config/*=tsk_null*/)
 {
     const tsip_action_handle_t* action_cfg = config ? config->getHandle() : tsk_null;
-    return (tsip_api_common_accept(m_pHandle,
-                                   TSIP_ACTION_SET_CONFIG(action_cfg),
-                                   TSIP_ACTION_SET_NULL()) == 0);
+    
+    TSK_DEBUG_INFO("*** MessagingSession::accept() called in C++ binding layer ***");
+    TSK_DEBUG_INFO("MessagingSession: m_pHandle = %p, action_cfg = %p", m_pHandle, action_cfg);
+    
+    int result = tsip_api_common_accept(m_pHandle,
+                                        TSIP_ACTION_SET_CONFIG(action_cfg),
+                                        TSIP_ACTION_SET_NULL());
+    
+    TSK_DEBUG_INFO("MessagingSession: tsip_api_common_accept() returned: %d", result);
+    
+    return (result == 0);
 }
 
 bool MessagingSession::reject(ActionConfig* config/*=tsk_null*/)

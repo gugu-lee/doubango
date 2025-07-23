@@ -96,11 +96,16 @@ static int tsip_dialog_message_event_callback(const tsip_dialog_message_t *self,
 {
     int ret = -1;
 
+    TSK_DEBUG_INFO("*** MESSAGE Dialog Event Callback: type=%d ***", type);
+
     switch(type) {
     case tsip_dialog_i_msg: {
         if(msg) {
             if(TSIP_MESSAGE_IS_RESPONSE(msg)) {
                 const tsip_action_t* action = tsip_dialog_keep_action(TSIP_DIALOG(self), msg) ? TSIP_DIALOG(self)->curr_action : tsk_null;
+                TSK_DEBUG_INFO("MESSAGE Dialog: Received SIP response: %d %s", 
+                              TSIP_RESPONSE_CODE(msg), TSIP_RESPONSE_PHRASE(msg));
+                
                 if(TSIP_RESPONSE_IS_1XX(msg)) {
                     ret = tsip_dialog_fsm_act(TSIP_DIALOG(self), _fsm_action_1xx, msg, action);
                 }
@@ -119,6 +124,7 @@ static int tsip_dialog_message_event_callback(const tsip_dialog_message_t *self,
             }
             else if (TSIP_REQUEST_IS_MESSAGE(msg)) { /* have been checked by dialog layer...but */
                 // REQUEST ==> Incoming MESSAGE
+                TSK_DEBUG_INFO("MESSAGE Dialog: Received incoming MESSAGE request, triggering FSM action");
                 ret = tsip_dialog_fsm_act(TSIP_DIALOG(self), _fsm_action_receiveMESSAGE, msg, tsk_null);
             }
         }
@@ -126,6 +132,7 @@ static int tsip_dialog_message_event_callback(const tsip_dialog_message_t *self,
     }
 
     case tsip_dialog_canceled: {
+        TSK_DEBUG_INFO("MESSAGE Dialog: Dialog canceled");
         ret = tsip_dialog_fsm_act(TSIP_DIALOG(self), _fsm_action_cancel, msg, tsk_null);
         break;
     }
@@ -134,14 +141,17 @@ static int tsip_dialog_message_event_callback(const tsip_dialog_message_t *self,
     case tsip_dialog_timedout:
     case tsip_dialog_error:
     case tsip_dialog_transport_error: {
+        TSK_DEBUG_INFO("MESSAGE Dialog: Dialog terminated/error, type=%d", type);
         ret = tsip_dialog_fsm_act(TSIP_DIALOG(self), _fsm_action_transporterror, msg, tsk_null);
         break;
     }
 
     default:
+        TSK_DEBUG_WARN("MESSAGE Dialog: Unhandled event type: %d", type);
         break;
     }
 
+    TSK_DEBUG_INFO("MESSAGE Dialog Event Callback: returning ret=%d", ret);
     return ret;
 }
 
@@ -237,6 +247,14 @@ int tsip_dialog_message_Started_2_Receiving_X_recvMESSAGE(va_list *app)
     tsip_dialog_message_t *self = va_arg(*app, tsip_dialog_message_t *);
     const tsip_request_t *request = va_arg(*app, const tsip_request_t *);
 
+    TSK_DEBUG_INFO("*** MESSAGE Dialog: Received incoming MESSAGE request ***");
+    TSK_DEBUG_INFO("MESSAGE Dialog: Transitioning from Started to Receiving state");
+    TSK_DEBUG_INFO("MESSAGE Dialog: Incoming MESSAGE Call-ID: %s", request->Call_ID ? request->Call_ID->value : "NULL");
+    TSK_DEBUG_INFO("MESSAGE Dialog: Incoming MESSAGE From: %s", 
+                  request->From ? (request->From->uri ? request->From->uri : "NULL") : "NULL");
+    TSK_DEBUG_INFO("MESSAGE Dialog: Incoming MESSAGE To: %s", 
+                  request->To ? (request->To->uri ? request->To->uri : "NULL") : "NULL");
+
     /* Alert the user. */
     TSIP_DIALOG_MESSAGE_SIGNAL(self, tsip_i_message,
                                tsip_event_code_dialog_request_incoming, "Incoming Request.", request);
@@ -244,6 +262,8 @@ int tsip_dialog_message_Started_2_Receiving_X_recvMESSAGE(va_list *app)
     /* Update last incoming MESSAGE */
     TSK_OBJECT_SAFE_FREE(self->request);
     self->request = tsk_object_ref((void*)request);
+
+    TSK_DEBUG_INFO("MESSAGE Dialog: Now in Receiving state, waiting for accept() or reject()");
 
     return 0;
 }
@@ -342,6 +362,8 @@ int tsip_dialog_message_Receiving_2_Terminated_X_accept(va_list *app)
     va_arg(*app, tsip_message_t *);
     action = va_arg(*app, const tsip_action_t *);
 
+    TSK_DEBUG_INFO("*** MESSAGE Dialog accept() called - starting 200 OK response process ***");
+
     if(!self->request) {
         TSK_DEBUG_ERROR("There is non MESSAGE to accept()");
         /* Not an error ...but do not update current action */
@@ -350,21 +372,36 @@ int tsip_dialog_message_Receiving_2_Terminated_X_accept(va_list *app)
         tsip_response_t *response;
         int ret;
 
+        TSK_DEBUG_INFO("MESSAGE Dialog: Creating 200 OK response for incoming MESSAGE request");
+        TSK_DEBUG_INFO("MESSAGE Dialog: Request Call-ID: %s", self->request->Call_ID ? self->request->Call_ID->value : "NULL");
+        TSK_DEBUG_INFO("MESSAGE Dialog: Request CSeq: %u %s", 
+                      self->request->CSeq ? self->request->CSeq->seq : 0,
+                      self->request->CSeq ? self->request->CSeq->method : "NULL");
+
         /* curr_action is only used for outgoing requests */
         /* tsip_dialog_set_curr_action(TSIP_DIALOG(self), action); */
 
         /* send 200 OK */
         if((response = tsip_dialog_response_new(TSIP_DIALOG(self), 200, "OK", self->request))) {
+            TSK_DEBUG_INFO("MESSAGE Dialog: 200 OK response created successfully");
+            TSK_DEBUG_INFO("MESSAGE Dialog: Response Call-ID: %s", response->Call_ID ? response->Call_ID->value : "NULL");
+            TSK_DEBUG_INFO("MESSAGE Dialog: Response CSeq: %u %s", 
+                          response->CSeq ? response->CSeq->seq : 0,
+                          response->CSeq ? response->CSeq->method : "NULL");
+            
             tsip_dialog_apply_action(response, action); /* apply action params to "this" response */
+            
+            TSK_DEBUG_INFO("MESSAGE Dialog: Sending 200 OK response...");
             if((ret = tsip_dialog_response_send(TSIP_DIALOG(self), response))) {
-                TSK_DEBUG_ERROR("Failed to send SIP response.");
+                TSK_DEBUG_ERROR("MESSAGE Dialog: Failed to send SIP response. Error code: %d", ret);
                 TSK_OBJECT_SAFE_FREE(response);
                 return ret;
             }
+            TSK_DEBUG_INFO("MESSAGE Dialog: 200 OK response sent successfully");
             TSK_OBJECT_SAFE_FREE(response);
         }
         else {
-            TSK_DEBUG_ERROR("Failed to create SIP response.");
+            TSK_DEBUG_ERROR("MESSAGE Dialog: Failed to create SIP response.");
             return -1;
         }
     }

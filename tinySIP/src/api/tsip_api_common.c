@@ -47,9 +47,11 @@ int _tsip_api_common_any(const tsip_ssession_handle_t *ss, tsip_action_type_t ty
     tsip_action_t* action;
     const tsip_ssession_t* _ss;
 
+    TSK_DEBUG_INFO("*** _tsip_api_common_any() called with action type: %d ***", type);
+
     /* Checks for validity */
     if(!(_ss = ss) || !_ss->stack) {
-        TSK_DEBUG_ERROR("Invalid parameter.");
+        TSK_DEBUG_ERROR("Invalid parameter: ss=%p, stack=%p", _ss, _ss ? _ss->stack : tsk_null);
         return ret;
     }
 
@@ -59,11 +61,18 @@ int _tsip_api_common_any(const tsip_ssession_handle_t *ss, tsip_action_type_t ty
         return -2;
     }
 
+    TSK_DEBUG_INFO("Creating action for type: %d", type);
     /* execute action */
     if((action = _tsip_action_create(type, app))) {
+        TSK_DEBUG_INFO("Action created successfully, handling session with action");
         ret = tsip_ssession_handle(_ss, action);
+        TSK_DEBUG_INFO("Session handle returned: %d", ret);
         TSK_OBJECT_SAFE_FREE(action);
     }
+    else {
+        TSK_DEBUG_ERROR("Failed to create action for type: %d", type);
+    }
+    
     return ret;
 }
 
@@ -122,9 +131,19 @@ int tsip_api_common_accept(const tsip_ssession_handle_t *ss, ...)
     int ret = -1;
     va_list ap;
 
+    TSK_DEBUG_INFO("*** tsip_api_common_accept() called ***");
+    
+    if(!ss) {
+        TSK_DEBUG_ERROR("Accept() failed: Invalid session handle");
+        return -1;
+    }
+
     va_start(ap, ss);
     if((ret = _tsip_api_common_any(ss, tsip_atype_accept, &ap))) {
-        TSK_DEBUG_ERROR("Accept() failed.");
+        TSK_DEBUG_ERROR("Accept() failed with error code: %d", ret);
+    }
+    else {
+        TSK_DEBUG_INFO("Accept() succeeded, returning %d", ret);
     }
     va_end(ap);
 
