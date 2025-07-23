@@ -598,23 +598,28 @@ int tsip_dialog_response_send(const tsip_dialog_t *self, tsip_response_t* respon
             
             // 打印 From 和 To
             if(response->From) {
-                TSK_DEBUG_INFO("  - From: %s", response->From->uri ? response->From->uri : "NULL");
+                char* from_uri_str = response->From->uri ? tsip_uri_tostring(response->From->uri, tsk_false, tsk_false) : tsk_null;
+                TSK_DEBUG_INFO("  - From: %s", from_uri_str ? from_uri_str : "NULL");
                 if(response->From->tag) {
                     TSK_DEBUG_INFO("  - From Tag: %s", response->From->tag);
                 }
+                TSK_FREE(from_uri_str);
             }
             
             if(response->To) {
-                TSK_DEBUG_INFO("  - To: %s", response->To->uri ? response->To->uri : "NULL");
+                char* to_uri_str = response->To->uri ? tsip_uri_tostring(response->To->uri, tsk_false, tsk_false) : tsk_null;
+                TSK_DEBUG_INFO("  - To: %s", to_uri_str ? to_uri_str : "NULL");
                 if(response->To->tag) {
                     TSK_DEBUG_INFO("  - To Tag: %s", response->To->tag);
                 }
+                TSK_FREE(to_uri_str);
             }
             
             // 打印 Via
             if(response->firstVia) {
-                TSK_DEBUG_INFO("  - Via: %s %s:%d", 
-                              response->firstVia->protocol ? response->firstVia->protocol : "NULL",
+                TSK_DEBUG_INFO("  - Via: %s/%s %s:%d", 
+                              response->firstVia->proto_name ? response->firstVia->proto_name : "SIP",
+                              response->firstVia->transport ? response->firstVia->transport : "UDP",
                               response->firstVia->host ? response->firstVia->host : "NULL",
                               response->firstVia->port);
                 if(response->firstVia->branch) {
