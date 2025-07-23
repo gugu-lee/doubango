@@ -614,7 +614,7 @@ int tsip_dialog_response_send(const tsip_dialog_t *self, tsip_response_t* respon
             // 打印 Via
             if(response->firstVia) {
                 TSK_DEBUG_INFO("  - Via: %s %s:%d", 
-                              response->firstVia->proto ? response->firstVia->proto : "NULL",
+                              response->firstVia->protocol ? response->firstVia->protocol : "NULL",
                               response->firstVia->host ? response->firstVia->host : "NULL",
                               response->firstVia->port);
                 if(response->firstVia->branch) {
