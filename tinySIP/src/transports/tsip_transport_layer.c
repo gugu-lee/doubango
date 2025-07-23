@@ -48,9 +48,27 @@
 #define ANDROID_LOG_TAG "DOUBANGO_TRANSPORT"
 #define TSK_DEBUG_ANDROID_INFO(FMT, ...) __android_log_print(ANDROID_LOG_INFO, ANDROID_LOG_TAG, FMT, ##__VA_ARGS__)
 #define TSK_DEBUG_ANDROID_ERROR(FMT, ...) __android_log_print(ANDROID_LOG_ERROR, ANDROID_LOG_TAG, FMT, ##__VA_ARGS__)
+
+// Android emulator detection and IP correction helper
+static tsk_bool_t tsip_transport_is_android_emulator_ip(const char* ip) {
+    if(!ip) return tsk_false;
+    return (tsk_striequals(ip, "0.0.0.0") || 
+            tsk_striequals(ip, "127.0.0.1") || 
+            tsk_strnullORempty(ip));
+}
+
+static void tsip_transport_fix_android_emulator_ip(char** destIP) {
+    if(!destIP) return;
+    if(tsip_transport_is_android_emulator_ip(*destIP)) {
+        TSK_DEBUG_ANDROID_INFO("Android emulator detected: replacing invalid IP %s with 10.0.2.2", *destIP ? *destIP : "NULL");
+        tsk_strupdate(destIP, "10.0.2.2");
+    }
+}
 #else
 #define TSK_DEBUG_ANDROID_INFO(FMT, ...)
 #define TSK_DEBUG_ANDROID_ERROR(FMT, ...)
+#define tsip_transport_is_android_emulator_ip(ip) tsk_false
+#define tsip_transport_fix_android_emulator_ip(destIP)
 #endif
 
 static const char* __null_callid = tsk_null;
@@ -829,7 +847,16 @@ static int tsip_transport_layer_dgram_cb(const tnet_transport_event_t* e)
                 if((ret = tnet_get_sockip_n_port((const struct sockaddr*)&e->remote_addr, &ip, &port)) == 0) {
                     message->firstVia->rport = (int32_t)port;
                     tsk_strupdate(&message->firstVia->received, (const char*)ip);
-                    TSK_DEBUG_ANDROID_INFO("  - Set rport: %d, received: %s", message->firstVia->rport, ip);
+                    
+                    #ifdef ANDROID
+                    // Android emulator: if extracted IP is invalid, set proper received parameter
+                    if(message->firstVia->received && tsip_transport_is_android_emulator_ip(message->firstVia->received)) {
+                        TSK_DEBUG_ANDROID_INFO("Android emulator: invalid extracted IP %s, setting received to 10.0.2.2", message->firstVia->received);
+                        tsk_strupdate(&message->firstVia->received, "10.0.2.2");
+                    }
+                    #endif
+                    
+                    TSK_DEBUG_ANDROID_INFO("  - Set rport: %d, received: %s", message->firstVia->rport, message->firstVia->received ? message->firstVia->received : "NULL");
                 }
             }
         }
@@ -1078,15 +1105,33 @@ clean_routes:
                 if(transport && tnet_get_peerip_n_port(msg->local_fd, &peer_ip, &peer_port) == 0) { // connection is still open ?
                     tsk_strupdate(destIP, peer_ip);
                     *destPort = peer_port;
+                    
+                    #ifdef ANDROID
+                    // Android emulator special handling for TCP peer IP
+                    tsip_transport_fix_android_emulator_ip(destIP);
+                    TSK_DEBUG_ANDROID_INFO("TCP response destination (peer): %s:%d", *destIP ? *destIP : "NULL", *destPort);
+                    #endif
                 }
                 else {
                     if(msg->firstVia->received) {
                         tsk_strupdate(destIP, msg->firstVia->received);
                         *destPort = msg->firstVia->rport > 0 ? msg->firstVia->rport : msg->firstVia->port;
+                        
+                        #ifdef ANDROID
+                        // Android emulator special handling: if received IP is invalid, use emulator gateway
+                        tsip_transport_fix_android_emulator_ip(destIP);
+                        TSK_DEBUG_ANDROID_INFO("TCP response destination (received): %s:%d", *destIP ? *destIP : "NULL", *destPort);
+                        #endif
                     }
                     else {
                         tsk_strupdate(destIP, msg->firstVia->host);
                         *destPort = msg->firstVia->port;
+                        
+                        #ifdef ANDROID
+                        // Android emulator special handling: if host IP is invalid, use emulator gateway
+                        tsip_transport_fix_android_emulator_ip(destIP);
+                        TSK_DEBUG_ANDROID_INFO("TCP response destination (host): %s:%d", *destIP ? *destIP : "NULL", *destPort);
+                        #endif
                     }
                 }
             }
@@ -1119,6 +1164,12 @@ clean_routes:
                         */
                         tsk_strupdate(destIP, msg->firstVia->received);
                         *destPort = msg->firstVia->rport;
+                        
+                        #ifdef ANDROID
+                        // Android emulator special handling: if received IP is invalid, use emulator gateway
+                        tsip_transport_fix_android_emulator_ip(destIP);
+                        TSK_DEBUG_ANDROID_INFO("Response destination (rport): %s:%d", *destIP ? *destIP : "NULL", *destPort);
+                        #endif
                     }
                     else {
                         /*	RFC 3261 - 18.2.2 Sending Responses
@@ -1132,6 +1183,12 @@ clean_routes:
                         */
                         tsk_strupdate(destIP, msg->firstVia->received);
                         *destPort = msg->firstVia->port ? msg->firstVia->port : 5060;
+                        
+                        #ifdef ANDROID
+                        // Android emulator special handling: if received IP is invalid, use emulator gateway
+                        tsip_transport_fix_android_emulator_ip(destIP);
+                        TSK_DEBUG_ANDROID_INFO("Response destination (received): %s:%d", *destIP ? *destIP : "NULL", *destPort);
+                        #endif
                     }
                 }
                 else {
@@ -1144,6 +1201,12 @@ clean_routes:
                     if(msg->firstVia->port > 0) {
                         *destPort = msg->firstVia->port;
                     }
+                    
+                    #ifdef ANDROID
+                    // Android emulator special handling: if host IP is invalid, use emulator gateway
+                    tsip_transport_fix_android_emulator_ip(destIP);
+                    TSK_DEBUG_ANDROID_INFO("Response destination (host): %s:%d", *destIP ? *destIP : "NULL", *destPort);
+                    #endif
                 }
             }
         }
@@ -1208,6 +1271,15 @@ int tsip_transport_layer_send(const tsip_transport_layer_t* self, const char *br
         TSK_DEBUG_ANDROID_INFO("  - Branch: %s", branch ? branch : "NULL");
         TSK_DEBUG_ANDROID_INFO("  - Destination IP: %s", destIP ? destIP : "NULL");
         TSK_DEBUG_ANDROID_INFO("  - Destination Port: %d", destPort);
+        
+        #ifdef ANDROID
+        // Final Android emulator check before sending
+        if(destIP && tsip_transport_is_android_emulator_ip(destIP)) {
+            TSK_DEBUG_ANDROID_INFO("Final Android emulator check: replacing %s with 10.0.2.2", destIP);
+            tsk_strupdate(&destIP, "10.0.2.2");
+            TSK_DEBUG_ANDROID_INFO("  - Final Destination IP: %s", destIP);
+        }
+        #endif
         
         if(msg) {
             TSK_DEBUG_ANDROID_INFO("Message Details:");
