@@ -1081,28 +1081,56 @@ int tsip_transport_layer_add(tsip_transport_layer_t* self, const char* local_hos
 
 int tsip_transport_layer_send(const tsip_transport_layer_t* self, const char *branch, tsip_message_t *msg)
 {
+    TSK_DEBUG_INFO("*** tsip_transport_layer_send() called ***");
+    
     if(msg && self && self->stack) {
         char* destIP = tsk_null;
         int32_t destPort = 5060;
         const tsip_transport_t *transport = tsip_transport_layer_find(self, msg, &destIP, &destPort);
         int ret;
+        
+        TSK_DEBUG_INFO("Transport Layer Send Details:");
+        TSK_DEBUG_INFO("  - Branch: %s", branch ? branch : "NULL");
+        TSK_DEBUG_INFO("  - Destination IP: %s", destIP ? destIP : "NULL");
+        TSK_DEBUG_INFO("  - Destination Port: %d", destPort);
+        
         if(transport) {
-            if(tsip_transport_send(transport, branch, TSIP_MESSAGE(msg), destIP, destPort) > 0/* returns number of send bytes */) {
+            TSK_DEBUG_INFO("  - Transport found:");
+            TSK_DEBUG_INFO("    - Transport Type: %d", transport->type);
+            TSK_DEBUG_INFO("    - Transport Protocol: %s", 
+                          TNET_SOCKET_TYPE_IS_UDP(transport->type) ? "UDP" :
+                          TNET_SOCKET_TYPE_IS_TCP(transport->type) ? "TCP" :
+                          TNET_SOCKET_TYPE_IS_TLS(transport->type) ? "TLS" :
+                          TNET_SOCKET_TYPE_IS_WS(transport->type) ? "WS" :
+                          TNET_SOCKET_TYPE_IS_WSS(transport->type) ? "WSS" : "UNKNOWN");
+            TSK_DEBUG_INFO("    - Local IP: %s", transport->net_host ? transport->net_host : "NULL");
+            TSK_DEBUG_INFO("    - Local Port: %d", transport->net_port);
+            
+            TSK_DEBUG_INFO("Sending message via transport...");
+            int sent_bytes = tsip_transport_send(transport, branch, TSIP_MESSAGE(msg), destIP, destPort);
+            TSK_DEBUG_INFO("Transport send returned: %d bytes", sent_bytes);
+            
+            if(sent_bytes > 0/* returns number of send bytes */) {
+                TSK_DEBUG_INFO("Message sent successfully (%d bytes)", sent_bytes);
                 ret = 0;
             }
             else {
+                TSK_DEBUG_ERROR("Failed to send message (returned %d)", sent_bytes);
                 ret = -3;
             }
         }
         else {
-            TSK_DEBUG_ERROR("Failed to find valid transport");
+            TSK_DEBUG_ERROR("Failed to find valid transport for destination %s:%d", 
+                           destIP ? destIP : "NULL", destPort);
             ret = -2;
         }
         TSK_FREE(destIP);
+        TSK_DEBUG_INFO("tsip_transport_layer_send() returning: %d", ret);
         return ret;
     }
     else {
-        TSK_DEBUG_ERROR("Invalid Parameter");
+        TSK_DEBUG_ERROR("Invalid Parameter: msg=%p, self=%p, stack=%p", 
+                       msg, self, self ? self->stack : NULL);
         return -1;
     }
 }

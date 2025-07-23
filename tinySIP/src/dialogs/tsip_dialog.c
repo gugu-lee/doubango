@@ -49,6 +49,17 @@
 #include "tinysip/headers/tsip_header_Subscription_State.h"
 #include "tinysip/headers/tsip_header_WWW_Authenticate.h"
 
+// 为 Android 添加日志输出
+#ifdef ANDROID
+#include <android/log.h>
+#define ANDROID_LOG_TAG "DOUBANGO"
+#define ANDROID_DEBUG_INFO(fmt, ...) __android_log_print(ANDROID_LOG_INFO, ANDROID_LOG_TAG, fmt, ##__VA_ARGS__)
+#define ANDROID_DEBUG_ERROR(fmt, ...) __android_log_print(ANDROID_LOG_ERROR, ANDROID_LOG_TAG, fmt, ##__VA_ARGS__)
+#else
+#define ANDROID_DEBUG_INFO(fmt, ...)
+#define ANDROID_DEBUG_ERROR(fmt, ...)
+#endif
+
 #include "tsk_debug.h"
 #include "tsk_time.h"
 
@@ -560,13 +571,89 @@ int tsip_dialog_response_send(const tsip_dialog_t *self, tsip_response_t* respon
 {
     int ret = -1;
 
+    TSK_DEBUG_INFO("*** tsip_dialog_response_send() called ***");
+    ANDROID_DEBUG_INFO("*** tsip_dialog_response_send() called ***");
+    
     if(self && TSIP_DIALOG_GET_STACK(self)) {
         const tsip_transac_layer_t *layer = TSIP_DIALOG_GET_STACK(self)->layer_transac;
+        
+        // 打印响应的基本信息
+        if(response) {
+            TSK_DEBUG_INFO("Response Details:");
+            ANDROID_DEBUG_INFO("Response Details:");
+            TSK_DEBUG_INFO("  - Status Code: %d", response->line.response.status_code);
+            ANDROID_DEBUG_INFO("  - Status Code: %d", response->line.response.status_code);
+            TSK_DEBUG_INFO("  - Reason Phrase: %s", response->line.response.reason_phrase ? response->line.response.reason_phrase : "NULL");
+            ANDROID_DEBUG_INFO("  - Reason Phrase: %s", response->line.response.reason_phrase ? response->line.response.reason_phrase : "NULL");
+            TSK_DEBUG_INFO("  - SIP Version: %s", response->line.response.version ? response->line.response.version : "NULL");
+            
+            // 打印 Call-ID
+            if(response->Call_ID) {
+                TSK_DEBUG_INFO("  - Call-ID: %s", response->Call_ID->value ? response->Call_ID->value : "NULL");
+            }
+            
+            // 打印 CSeq
+            if(response->CSeq) {
+                TSK_DEBUG_INFO("  - CSeq: %u %s", response->CSeq->seq, response->CSeq->method ? response->CSeq->method : "NULL");
+            }
+            
+            // 打印 From 和 To
+            if(response->From) {
+                TSK_DEBUG_INFO("  - From: %s", response->From->uri ? response->From->uri : "NULL");
+                if(response->From->tag) {
+                    TSK_DEBUG_INFO("  - From Tag: %s", response->From->tag);
+                }
+            }
+            
+            if(response->To) {
+                TSK_DEBUG_INFO("  - To: %s", response->To->uri ? response->To->uri : "NULL");
+                if(response->To->tag) {
+                    TSK_DEBUG_INFO("  - To Tag: %s", response->To->tag);
+                }
+            }
+            
+            // 打印 Via
+            if(response->firstVia) {
+                TSK_DEBUG_INFO("  - Via: %s %s:%d", 
+                              response->firstVia->proto ? response->firstVia->proto : "NULL",
+                              response->firstVia->host ? response->firstVia->host : "NULL",
+                              response->firstVia->port);
+                if(response->firstVia->branch) {
+                    TSK_DEBUG_INFO("  - Via Branch: %s", response->firstVia->branch);
+                }
+            }
+            
+            // 打印连接信息
+            TSK_DEBUG_INFO("  - Local FD: %d", response->local_fd);
+            TSK_DEBUG_INFO("  - Source Net Type: %d", response->src_net_type);
+            
+            // 打印内容信息
+            if(TSIP_MESSAGE_HAS_CONTENT(response)) {
+                const tsk_buffer_t* content = TSIP_MESSAGE_CONTENT(response);
+                const char* content_type = TSIP_MESSAGE_CONTENT_TYPE(response);
+                TSK_DEBUG_INFO("  - Content-Type: %s", content_type ? content_type : "NULL");
+                TSK_DEBUG_INFO("  - Content-Length: %zu", content ? content->size : 0);
+                if(content && content->size > 0 && content->size < 500) { // 只打印小于500字节的内容
+                    TSK_DEBUG_INFO("  - Content: %.*s", (int)content->size, (char*)content->data);
+                }
+            } else {
+                TSK_DEBUG_INFO("  - No Content");
+            }
+        }
+        
         if(layer) {
+            TSK_DEBUG_INFO("Finding server transaction for response...");
             /* As this is a response ...then use the associate server transaction */
             tsip_transac_t *transac = tsip_transac_layer_find_server(layer, response);
             if(transac) {
+                TSK_DEBUG_INFO("Server transaction found, sending response...");
+                TSK_DEBUG_INFO("Transaction Details:");
+                TSK_DEBUG_INFO("  - Transaction ID: %s", transac->branch ? transac->branch : "NULL");
+                TSK_DEBUG_INFO("  - Transaction Type: %d", transac->type);
+                TSK_DEBUG_INFO("  - Transaction Reliable: %s", transac->reliable ? "YES" : "NO");
+                
                 ret = transac->callback(transac, tsip_transac_outgoing_msg, response);
+                TSK_DEBUG_INFO("Transaction callback returned: %d", ret);
                 tsk_object_unref(transac);
             }
             else {
@@ -574,10 +661,15 @@ int tsip_dialog_response_send(const tsip_dialog_t *self, tsip_response_t* respon
                 // Send "408 Request Timeout" (should be done by the transaction layer)?
             }
         }
+        else {
+            TSK_DEBUG_ERROR("Transaction layer is NULL");
+        }
     }
     else {
-        TSK_DEBUG_ERROR("Invalid parameter");
+        TSK_DEBUG_ERROR("Invalid parameter: self=%p, stack=%p", self, self ? TSIP_DIALOG_GET_STACK(self) : NULL);
     }
+    
+    TSK_DEBUG_INFO("tsip_dialog_response_send() returning: %d", ret);
     return ret;
 }
 

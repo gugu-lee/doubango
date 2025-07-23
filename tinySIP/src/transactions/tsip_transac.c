@@ -216,15 +216,67 @@ int tsip_transac_deliver(tsip_transac_t* self, tsip_dialog_event_type_t event_ty
 // send the message over the network
 int tsip_transac_send(tsip_transac_t *self, const char *branch, tsip_message_t *msg)
 {
+    TSK_DEBUG_INFO("*** tsip_transac_send() called ***");
+    
     if(self && TSIP_TRANSAC_GET_STACK(self)->layer_transport && msg) {
         const struct tsip_ssession_s* ss = TSIP_TRANSAC_GET_SESSION(self);
+        
+        TSK_DEBUG_INFO("Transaction Send Details:");
+        TSK_DEBUG_INFO("  - Transaction Branch: %s", branch ? branch : "NULL");
+        TSK_DEBUG_INFO("  - Transaction Type: %d", self->type);
+        TSK_DEBUG_INFO("  - Transaction Reliable: %s", self->reliable ? "YES" : "NO");
+        
+        if(msg) {
+            if(TSIP_MESSAGE_IS_RESPONSE(msg)) {
+                tsip_response_t* response = TSIP_RESPONSE(msg);
+                TSK_DEBUG_INFO("  - Message Type: RESPONSE");
+                TSK_DEBUG_INFO("  - Status Code: %d", response->line.response.status_code);
+                TSK_DEBUG_INFO("  - Reason Phrase: %s", response->line.response.reason_phrase ? response->line.response.reason_phrase : "NULL");
+            } else if(TSIP_MESSAGE_IS_REQUEST(msg)) {
+                tsip_request_t* request = TSIP_REQUEST(msg);
+                TSK_DEBUG_INFO("  - Message Type: REQUEST");
+                TSK_DEBUG_INFO("  - Method: %s", request->line.request.method ? request->line.request.method : "NULL");
+                TSK_DEBUG_INFO("  - URI: %s", request->line.request.uri ? request->line.request.uri->host : "NULL");
+            }
+            
+            // 打印网络信息
+            TSK_DEBUG_INFO("  - Network Info:");
+            TSK_DEBUG_INFO("    - Local FD: %d", msg->local_fd);
+            TSK_DEBUG_INFO("    - Source Net Type: %d", msg->src_net_type);
+            
+            // 打印 Via 头信息（包含目标地址）
+            if(msg->firstVia) {
+                TSK_DEBUG_INFO("    - Via Host: %s", msg->firstVia->host ? msg->firstVia->host : "NULL");
+                TSK_DEBUG_INFO("    - Via Port: %d", msg->firstVia->port);
+                TSK_DEBUG_INFO("    - Via Protocol: %s", msg->firstVia->proto ? msg->firstVia->proto : "NULL");
+            }
+            
+            // 打印内容信息
+            if(TSIP_MESSAGE_HAS_CONTENT(msg)) {
+                const tsk_buffer_t* content = TSIP_MESSAGE_CONTENT(msg);
+                const char* content_type = TSIP_MESSAGE_CONTENT_TYPE(msg);
+                TSK_DEBUG_INFO("    - Content-Type: %s", content_type ? content_type : "NULL");
+                TSK_DEBUG_INFO("    - Content-Length: %zu", content ? content->size : 0);
+            } else {
+                TSK_DEBUG_INFO("    - No Content");
+            }
+        }
+        
         if(ss) {
             // set SigComp identifier as the message is directly sent to the transport layer
             tsk_strupdate(&msg->sigcomp_id, ss->sigcomp_id);
+            TSK_DEBUG_INFO("  - SigComp ID: %s", ss->sigcomp_id ? ss->sigcomp_id : "NULL");
         }
-        return tsip_transport_layer_send(TSIP_TRANSAC_GET_STACK(self)->layer_transport, branch, TSIP_MESSAGE(msg));
+        
+        TSK_DEBUG_INFO("Sending message to transport layer...");
+        int ret = tsip_transport_layer_send(TSIP_TRANSAC_GET_STACK(self)->layer_transport, branch, TSIP_MESSAGE(msg));
+        TSK_DEBUG_INFO("Transport layer send returned: %d", ret);
+        return ret;
     }
-    TSK_DEBUG_ERROR("Invalid parameter");
+    TSK_DEBUG_ERROR("Invalid parameter: self=%p, transport=%p, msg=%p", 
+                   self, 
+                   self ? TSIP_TRANSAC_GET_STACK(self)->layer_transport : NULL, 
+                   msg);
     return -1;
 }
 
