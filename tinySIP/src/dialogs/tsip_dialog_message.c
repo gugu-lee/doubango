@@ -41,6 +41,17 @@
 #include "tsk_debug.h"
 #include "tsk_time.h"
 
+// 为 Android 添加日志输出
+#ifdef ANDROID
+#include <android/log.h>
+#define ANDROID_LOG_TAG "DOUBANGO"
+#define ANDROID_DEBUG_INFO(fmt, ...) __android_log_print(ANDROID_LOG_INFO, ANDROID_LOG_TAG, fmt, ##__VA_ARGS__)
+#define ANDROID_DEBUG_ERROR(fmt, ...) __android_log_print(ANDROID_LOG_ERROR, ANDROID_LOG_TAG, fmt, ##__VA_ARGS__)
+#else
+#define ANDROID_DEBUG_INFO(fmt, ...)
+#define ANDROID_DEBUG_ERROR(fmt, ...)
+#endif
+
 #define DEBUG_STATE_MACHINE											1
 #define TSIP_DIALOG_MESSAGE_SIGNAL(self, type, code, phrase, message)	\
 	tsip_message_event_signal(type, TSIP_DIALOG(self)->ss, code, phrase, message)
@@ -363,6 +374,9 @@ int tsip_dialog_message_Receiving_2_Terminated_X_accept(va_list *app)
     action = va_arg(*app, const tsip_action_t *);
 
     TSK_DEBUG_INFO("*** MESSAGE Dialog accept() called - starting 200 OK response process ***");
+    ANDROID_DEBUG_INFO("*** MESSAGE Dialog accept() called - starting 200 OK response process ***");
+    printf(">>> DOUBANGO DEBUG: MESSAGE Dialog accept() called\n");
+    fflush(stdout);
 
     if(!self->request) {
         TSK_DEBUG_ERROR("There is non MESSAGE to accept()");
@@ -373,7 +387,9 @@ int tsip_dialog_message_Receiving_2_Terminated_X_accept(va_list *app)
         int ret;
 
         TSK_DEBUG_INFO("MESSAGE Dialog: Creating 200 OK response for incoming MESSAGE request");
+        ANDROID_DEBUG_INFO("MESSAGE Dialog: Creating 200 OK response for incoming MESSAGE request");
         TSK_DEBUG_INFO("MESSAGE Dialog: Request Call-ID: %s", self->request->Call_ID ? self->request->Call_ID->value : "NULL");
+        ANDROID_DEBUG_INFO("MESSAGE Dialog: Request Call-ID: %s", self->request->Call_ID ? self->request->Call_ID->value : "NULL");
         TSK_DEBUG_INFO("MESSAGE Dialog: Request CSeq: %u %s", 
                       self->request->CSeq ? self->request->CSeq->seq : 0,
                       self->request->CSeq ? self->request->CSeq->method : "NULL");
@@ -384,20 +400,20 @@ int tsip_dialog_message_Receiving_2_Terminated_X_accept(va_list *app)
         /* send 200 OK */
         if((response = tsip_dialog_response_new(TSIP_DIALOG(self), 200, "OK", self->request))) {
             TSK_DEBUG_INFO("MESSAGE Dialog: 200 OK response created successfully");
-            TSK_DEBUG_INFO("MESSAGE Dialog: Response Call-ID: %s", response->Call_ID ? response->Call_ID->value : "NULL");
-            TSK_DEBUG_INFO("MESSAGE Dialog: Response CSeq: %u %s", 
-                          response->CSeq ? response->CSeq->seq : 0,
-                          response->CSeq ? response->CSeq->method : "NULL");
+            ANDROID_DEBUG_INFO("MESSAGE Dialog: 200 OK response created successfully");
             
             tsip_dialog_apply_action(response, action); /* apply action params to "this" response */
             
             TSK_DEBUG_INFO("MESSAGE Dialog: Sending 200 OK response...");
+            ANDROID_DEBUG_INFO("MESSAGE Dialog: Sending 200 OK response...");
             if((ret = tsip_dialog_response_send(TSIP_DIALOG(self), response))) {
                 TSK_DEBUG_ERROR("MESSAGE Dialog: Failed to send SIP response. Error code: %d", ret);
+                ANDROID_DEBUG_ERROR("MESSAGE Dialog: Failed to send SIP response. Error code: %d", ret);
                 TSK_OBJECT_SAFE_FREE(response);
                 return ret;
             }
             TSK_DEBUG_INFO("MESSAGE Dialog: 200 OK response sent successfully");
+            ANDROID_DEBUG_INFO("MESSAGE Dialog: 200 OK response sent successfully");
             TSK_OBJECT_SAFE_FREE(response);
         }
         else {
