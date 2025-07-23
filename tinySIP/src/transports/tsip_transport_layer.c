@@ -842,7 +842,7 @@ static int tsip_transport_layer_dgram_cb(const tnet_transport_event_t* e)
     } else {
         TSK_DEBUG_ANDROID_ERROR("Failed to parse UDP message or missing required headers");
     }
-    }
+    
     TSK_OBJECT_SAFE_FREE(message);
 
     return ret;
