@@ -289,7 +289,7 @@ int tsip_transac_deliver(tsip_transac_t* self, tsip_dialog_event_type_t event_ty
     
     if(msg) {
         if(TSIP_MESSAGE_IS_RESPONSE(msg)) {
-            tsip_response_t* response = TSIP_RESPONSE(msg);
+            tsip_response_t* response = TSIP_MESSAGE_AS_RESPONSE(msg);
             TSK_DEBUG_INFO("  - Delivering RESPONSE: %d %s", 
                           response->line.response.status_code,
                           response->line.response.reason_phrase ? response->line.response.reason_phrase : "NULL");
@@ -297,7 +297,7 @@ int tsip_transac_deliver(tsip_transac_t* self, tsip_dialog_event_type_t event_ty
                               response->line.response.status_code,
                               response->line.response.reason_phrase ? response->line.response.reason_phrase : "NULL");
         } else if(TSIP_MESSAGE_IS_REQUEST(msg)) {
-            tsip_request_t* request = TSIP_REQUEST(msg);
+            tsip_request_t* request = TSIP_MESSAGE_AS_REQUEST(msg);
             TSK_DEBUG_INFO("  - Delivering REQUEST: %s", 
                           request->line.request.method ? request->line.request.method : "NULL");
             ANDROID_DEBUG_INFO("  - Delivering REQUEST: %s", 
@@ -331,7 +331,7 @@ int tsip_transac_send(tsip_transac_t *self, const char *branch, tsip_message_t *
         
         if(msg) {
             if(TSIP_MESSAGE_IS_RESPONSE(msg)) {
-                tsip_response_t* response = TSIP_RESPONSE(msg);
+                tsip_response_t* response = TSIP_MESSAGE_AS_RESPONSE(msg);
                 TSK_DEBUG_INFO("  - Message Type: RESPONSE");
                 ANDROID_DEBUG_INFO("  - Message Type: RESPONSE");
                 TSK_DEBUG_INFO("  - Status Code: %d", response->line.response.status_code);
@@ -339,7 +339,7 @@ int tsip_transac_send(tsip_transac_t *self, const char *branch, tsip_message_t *
                 TSK_DEBUG_INFO("  - Reason Phrase: %s", response->line.response.reason_phrase ? response->line.response.reason_phrase : "NULL");
                 ANDROID_DEBUG_INFO("  - Reason Phrase: %s", response->line.response.reason_phrase ? response->line.response.reason_phrase : "NULL");
             } else if(TSIP_MESSAGE_IS_REQUEST(msg)) {
-                tsip_request_t* request = TSIP_REQUEST(msg);
+                tsip_request_t* request = TSIP_MESSAGE_AS_REQUEST(msg);
                 TSK_DEBUG_INFO("  - Message Type: REQUEST");
                 ANDROID_DEBUG_INFO("  - Message Type: REQUEST");
                 TSK_DEBUG_INFO("  - Method: %s", request->line.request.method ? request->line.request.method : "NULL");
