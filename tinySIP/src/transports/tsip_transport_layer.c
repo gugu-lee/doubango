@@ -43,6 +43,16 @@
 #include "tsk_thread.h"
 #include "tsk_debug.h"
 
+#ifdef ANDROID
+#include <android/log.h>
+#define ANDROID_LOG_TAG "DOUBANGO_TRANSPORT"
+#define TSK_DEBUG_ANDROID_INFO(FMT, ...) __android_log_print(ANDROID_LOG_INFO, ANDROID_LOG_TAG, FMT, ##__VA_ARGS__)
+#define TSK_DEBUG_ANDROID_ERROR(FMT, ...) __android_log_print(ANDROID_LOG_ERROR, ANDROID_LOG_TAG, FMT, ##__VA_ARGS__)
+#else
+#define TSK_DEBUG_ANDROID_INFO(FMT, ...)
+#define TSK_DEBUG_ANDROID_ERROR(FMT, ...)
+#endif
+
 static const char* __null_callid = tsk_null;
 
 /* max size of a chunck to form a valid SIP message */
@@ -115,15 +125,48 @@ int tsip_transport_layer_handle_incoming_msg(const tsip_transport_t *transport, 
 {
     int ret = -1;
 
+    TSK_DEBUG_ANDROID_INFO("*** Transport Layer Handle Incoming Message ***");
+    
     if(message) {
         const tsip_transac_layer_t *layer_transac = transport->stack->layer_transac;
         const tsip_dialog_layer_t *layer_dialog = transport->stack->layer_dialog;
 
+        TSK_DEBUG_ANDROID_INFO("Incoming Message Details:");
+        if(message->Call_ID) {
+            TSK_DEBUG_ANDROID_INFO("  - Call-ID: %s", message->Call_ID->value ? message->Call_ID->value : "NULL");
+        }
+        if(message->CSeq) {
+            TSK_DEBUG_ANDROID_INFO("  - CSeq: %u %s", message->CSeq->seq, message->CSeq->method ? message->CSeq->method : "NULL");
+        }
+        if(TSIP_MESSAGE_IS_REQUEST(message)) {
+            TSK_DEBUG_ANDROID_INFO("  - Message Type: REQUEST");
+            TSK_DEBUG_ANDROID_INFO("  - Method: %s", message->line.request.method ? message->line.request.method : "NULL");
+        } else {
+            TSK_DEBUG_ANDROID_INFO("  - Message Type: RESPONSE");
+            TSK_DEBUG_ANDROID_INFO("  - Status Code: %d", message->line.response.status_code);
+            TSK_DEBUG_ANDROID_INFO("  - Reason Phrase: %s", message->line.response.reason_phrase ? message->line.response.reason_phrase : "NULL");
+        }
+        TSK_DEBUG_ANDROID_INFO("  - Local FD: %d", message->local_fd);
+        TSK_DEBUG_ANDROID_INFO("  - Source Net Type: %d", message->src_net_type);
+
+        TSK_DEBUG_ANDROID_INFO("Forwarding to transaction layer...");
         if((ret = tsip_transac_layer_handle_incoming_msg(layer_transac, message))) {
             /* NO MATCHING TRANSACTION FOUND ==> LOOK INTO DIALOG LAYER */
+            TSK_DEBUG_ANDROID_INFO("No matching transaction found, trying dialog layer...");
             ret = tsip_dialog_layer_handle_incoming_msg(layer_dialog, message);
+            if(ret == 0) {
+                TSK_DEBUG_ANDROID_INFO("Successfully handled by dialog layer");
+            } else {
+                TSK_DEBUG_ANDROID_ERROR("Failed to handle message at dialog layer: %d", ret);
+            }
+        } else {
+            TSK_DEBUG_ANDROID_INFO("Successfully handled by transaction layer");
         }
+    } else {
+        TSK_DEBUG_ANDROID_ERROR("Invalid message parameter in transport layer");
     }
+    
+    TSK_DEBUG_ANDROID_INFO("Transport layer handle incoming result: %d", ret);
     return ret;
 }
 
@@ -140,6 +183,10 @@ static int tsip_transport_layer_stream_cb(const tnet_transport_event_t* e)
     switch(e->type) {
     case event_data: {
         TSK_DEBUG_INFO("\n\nRECV:%.*s\n\n", e->size, (const char*)e->data);
+        TSK_DEBUG_ANDROID_INFO("*** TCP Stream Received Data ***");
+        TSK_DEBUG_ANDROID_INFO("  - Local FD: %d", e->local_fd);
+        TSK_DEBUG_ANDROID_INFO("  - Data Size: %zu bytes", e->size);
+        TSK_DEBUG_ANDROID_INFO("  - Transport Type: TCP/TLS/SCTP");
         break;
     }
     case event_closed:
@@ -147,13 +194,18 @@ static int tsip_transport_layer_stream_cb(const tnet_transport_event_t* e)
     case event_removed: {
         tsip_transport_stream_peer_t* peer;
         TSK_DEBUG_INFO("Stream Peer closed - %d", e->local_fd);
+        TSK_DEBUG_ANDROID_INFO("*** TCP Stream Peer Closed ***");
+        TSK_DEBUG_ANDROID_INFO("  - Local FD: %d", e->local_fd);
+        TSK_DEBUG_ANDROID_INFO("  - Event Type: %d", e->type);
         // signal "peer disconnected" before "stack disconnected"
         if((peer = tsip_transport_pop_stream_peer_by_local_fd(transport, e->local_fd))) {
+            TSK_DEBUG_ANDROID_INFO("  - Signaling peer disconnection to dialog layer");
             tsip_dialog_layer_signal_peer_disconnected(TSIP_STACK(transport->stack)->layer_dialog, peer);
             TSK_OBJECT_SAFE_FREE(peer);
         }
         else {
             TSK_DEBUG_INFO("Closed peer with fd=%d not registered yet", e->local_fd);
+            TSK_DEBUG_ANDROID_INFO("  - Peer with fd=%d not registered", e->local_fd);
         }
         // connectedFD== master's fd for servers
         if(transport->connectedFD == e->local_fd || transport->connectedFD == TNET_INVALID_FD) {
@@ -306,17 +358,40 @@ parse_buffer:
     }
     else {
         TSK_DEBUG_ERROR("Failed to parse pending stream....reset buffer");
+        TSK_DEBUG_ANDROID_ERROR("Failed to parse pending TCP stream, resetting buffer");
         tsk_buffer_cleanup(peer->rcv_buff_stream);
     }
 
     if(message && message->firstVia && message->Call_ID && message->CSeq && message->From && message->To) {
         /* Signal we got at least one valid SIP message */
         peer->got_valid_sip_msg = tsk_true;
+        
+        TSK_DEBUG_ANDROID_INFO("*** TCP Stream Message Parsed Successfully ***");
+        if(message->Call_ID) {
+            TSK_DEBUG_ANDROID_INFO("  - Call-ID: %s", message->Call_ID->value ? message->Call_ID->value : "NULL");
+        }
+        if(message->CSeq) {
+            TSK_DEBUG_ANDROID_INFO("  - CSeq: %u %s", message->CSeq->seq, message->CSeq->method ? message->CSeq->method : "NULL");
+        }
+        if(TSIP_MESSAGE_IS_REQUEST(message)) {
+            TSK_DEBUG_ANDROID_INFO("  - Message Type: REQUEST");
+            TSK_DEBUG_ANDROID_INFO("  - Method: %s", message->line.request.method ? message->line.request.method : "NULL");
+        } else {
+            TSK_DEBUG_ANDROID_INFO("  - Message Type: RESPONSE");
+            TSK_DEBUG_ANDROID_INFO("  - Status Code: %d", message->line.response.status_code);
+        }
+        
         /* Set fd */
         message->local_fd = e->local_fd;
         message->src_net_type = transport->type;
+        
+        TSK_DEBUG_ANDROID_INFO("  - Local FD: %d", message->local_fd);
+        TSK_DEBUG_ANDROID_INFO("  - Source Net Type: %d", message->src_net_type);
+        
         /* Alert transaction/dialog layer */
+        TSK_DEBUG_ANDROID_INFO("Forwarding TCP message to transaction/dialog layer...");
         ret = tsip_transport_layer_handle_incoming_msg(transport, message);
+        TSK_DEBUG_ANDROID_INFO("TCP message processing result: %d", ret);
         /* Parse next chunck */
         if(TSK_BUFFER_SIZE(peer->rcv_buff_stream) >= TSIP_MIN_STREAM_CHUNCK_SIZE) {
             /* message already passed to the dialog/transac layers */
@@ -326,6 +401,7 @@ parse_buffer:
     }
     else {
         TSK_DEBUG_ERROR("Failed to parse SIP message");
+        TSK_DEBUG_ANDROID_ERROR("Failed to parse TCP SIP message or missing required headers");
         ret = -15;
     }
 
@@ -656,11 +732,19 @@ static int tsip_transport_layer_dgram_cb(const tnet_transport_event_t* e)
     switch(e->type) {
     case event_data: {
         TSK_DEBUG_INFO("\n\nRECV:%.*s\n\n", e->size, (const char*)e->data);
+        TSK_DEBUG_ANDROID_INFO("*** UDP Transport Received Data ***");
+        TSK_DEBUG_ANDROID_INFO("  - Local FD: %d", e->local_fd);
+        TSK_DEBUG_ANDROID_INFO("  - Data Size: %zu bytes", e->size);
+        TSK_DEBUG_ANDROID_INFO("  - Transport Type: UDP");
+        if(e->size > 0 && e->size < 1000) { // Log small messages completely
+            TSK_DEBUG_ANDROID_INFO("  - Data Content: %.*s", (int)e->size, (const char*)e->data);
+        }
         break;
     }
     case event_closed:
     case event_connected:
     default: {
+        TSK_DEBUG_ANDROID_INFO("*** UDP Transport Event: %d ***", e->type);
         return 0;
     }
     }
@@ -702,10 +786,29 @@ static int tsip_transport_layer_dgram_cb(const tnet_transport_event_t* e)
     tsk_ragel_state_init(&state, data_ptr, data_size);
     if(tsip_message_parse(&state, &message, tsk_true) == tsk_true
             && message->firstVia &&  message->Call_ID && message->CSeq && message->From && message->To) {
+        
+        TSK_DEBUG_ANDROID_INFO("*** UDP Message Parsed Successfully ***");
+        if(message->Call_ID) {
+            TSK_DEBUG_ANDROID_INFO("  - Call-ID: %s", message->Call_ID->value ? message->Call_ID->value : "NULL");
+        }
+        if(message->CSeq) {
+            TSK_DEBUG_ANDROID_INFO("  - CSeq: %u %s", message->CSeq->seq, message->CSeq->method ? message->CSeq->method : "NULL");
+        }
+        if(TSIP_MESSAGE_IS_REQUEST(message)) {
+            TSK_DEBUG_ANDROID_INFO("  - Message Type: REQUEST");
+            TSK_DEBUG_ANDROID_INFO("  - Method: %s", message->line.request.method ? message->line.request.method : "NULL");
+        } else {
+            TSK_DEBUG_ANDROID_INFO("  - Message Type: RESPONSE");
+            TSK_DEBUG_ANDROID_INFO("  - Status Code: %d", message->line.response.status_code);
+        }
+        
         /* Set local fd used to receive the message and the address of the remote peer */
         message->local_fd = e->local_fd;
         message->remote_addr = e->remote_addr;
         message->src_net_type = transport->type;
+
+        TSK_DEBUG_ANDROID_INFO("  - Local FD: %d", message->local_fd);
+        TSK_DEBUG_ANDROID_INFO("  - Source Net Type: %d", message->src_net_type);
 
         /* RFC 3581 - 4.  Server Behavior
          When a server compliant to this specification (which can be a proxy
@@ -726,13 +829,19 @@ static int tsip_transport_layer_dgram_cb(const tnet_transport_event_t* e)
                 if((ret = tnet_get_sockip_n_port((const struct sockaddr*)&e->remote_addr, &ip, &port)) == 0) {
                     message->firstVia->rport = (int32_t)port;
                     tsk_strupdate(&message->firstVia->received, (const char*)ip);
+                    TSK_DEBUG_ANDROID_INFO("  - Set rport: %d, received: %s", message->firstVia->rport, ip);
                 }
             }
         }
 
 
         /* Alert transaction/dialog layer */
+        TSK_DEBUG_ANDROID_INFO("Forwarding UDP message to transaction/dialog layer...");
         ret = tsip_transport_layer_handle_incoming_msg(transport, message);
+        TSK_DEBUG_ANDROID_INFO("UDP message processing result: %d", ret);
+    } else {
+        TSK_DEBUG_ANDROID_ERROR("Failed to parse UDP message or missing required headers");
+    }
     }
     TSK_OBJECT_SAFE_FREE(message);
 
@@ -1082,6 +1191,7 @@ int tsip_transport_layer_add(tsip_transport_layer_t* self, const char* local_hos
 int tsip_transport_layer_send(const tsip_transport_layer_t* self, const char *branch, tsip_message_t *msg)
 {
     TSK_DEBUG_INFO("*** tsip_transport_layer_send() called ***");
+    TSK_DEBUG_ANDROID_INFO("*** Transport Layer Send Called ***");
     
     if(msg && self && self->stack) {
         char* destIP = tsk_null;
@@ -1094,7 +1204,34 @@ int tsip_transport_layer_send(const tsip_transport_layer_t* self, const char *br
         TSK_DEBUG_INFO("  - Destination IP: %s", destIP ? destIP : "NULL");
         TSK_DEBUG_INFO("  - Destination Port: %d", destPort);
         
+        TSK_DEBUG_ANDROID_INFO("Transport Layer Send Details:");
+        TSK_DEBUG_ANDROID_INFO("  - Branch: %s", branch ? branch : "NULL");
+        TSK_DEBUG_ANDROID_INFO("  - Destination IP: %s", destIP ? destIP : "NULL");
+        TSK_DEBUG_ANDROID_INFO("  - Destination Port: %d", destPort);
+        
+        if(msg) {
+            TSK_DEBUG_ANDROID_INFO("Message Details:");
+            if(msg->Call_ID) {
+                TSK_DEBUG_ANDROID_INFO("  - Call-ID: %s", msg->Call_ID->value ? msg->Call_ID->value : "NULL");
+            }
+            if(msg->CSeq) {
+                TSK_DEBUG_ANDROID_INFO("  - CSeq: %u %s", msg->CSeq->seq, msg->CSeq->method ? msg->CSeq->method : "NULL");
+            }
+            if(TSIP_MESSAGE_IS_REQUEST(msg)) {
+                TSK_DEBUG_ANDROID_INFO("  - Message Type: REQUEST");
+                TSK_DEBUG_ANDROID_INFO("  - Method: %s", msg->line.request.method ? msg->line.request.method : "NULL");
+            } else {
+                TSK_DEBUG_ANDROID_INFO("  - Message Type: RESPONSE");
+                TSK_DEBUG_ANDROID_INFO("  - Status Code: %d", msg->line.response.status_code);
+                TSK_DEBUG_ANDROID_INFO("  - Reason Phrase: %s", msg->line.response.reason_phrase ? msg->line.response.reason_phrase : "NULL");
+            }
+        }
+        
         if(transport) {
+            tnet_ip_t local_ip;
+            tnet_port_t local_port;
+            int addr_result = tnet_get_sockip_n_port((const struct sockaddr*)&transport->pcscf_addr, &local_ip, &local_port);
+            
             TSK_DEBUG_INFO("  - Transport found:");
             TSK_DEBUG_INFO("    - Transport Type: %d", transport->type);
             TSK_DEBUG_INFO("    - Transport Protocol: %s", 
@@ -1103,33 +1240,55 @@ int tsip_transport_layer_send(const tsip_transport_layer_t* self, const char *br
                           TNET_SOCKET_TYPE_IS_TLS(transport->type) ? "TLS" :
                           TNET_SOCKET_TYPE_IS_WS(transport->type) ? "WS" :
                           TNET_SOCKET_TYPE_IS_WSS(transport->type) ? "WSS" : "UNKNOWN");
-            TSK_DEBUG_INFO("    - Local IP: %s", transport->net_host ? transport->net_host : "NULL");
-            TSK_DEBUG_INFO("    - Local Port: %d", transport->net_port);
+            TSK_DEBUG_INFO("    - Local IP: %s", (addr_result == 0) ? local_ip : "UNKNOWN");
+            TSK_DEBUG_INFO("    - Local Port: %d", (addr_result == 0) ? local_port : 0);
+            
+            TSK_DEBUG_ANDROID_INFO("  - Transport found:");
+            TSK_DEBUG_ANDROID_INFO("    - Transport Type: %d", transport->type);
+            TSK_DEBUG_ANDROID_INFO("    - Transport Protocol: %s", 
+                          TNET_SOCKET_TYPE_IS_UDP(transport->type) ? "UDP" :
+                          TNET_SOCKET_TYPE_IS_TCP(transport->type) ? "TCP" :
+                          TNET_SOCKET_TYPE_IS_TLS(transport->type) ? "TLS" :
+                          TNET_SOCKET_TYPE_IS_WS(transport->type) ? "WS" :
+                          TNET_SOCKET_TYPE_IS_WSS(transport->type) ? "WSS" : "UNKNOWN");
+            TSK_DEBUG_ANDROID_INFO("    - PCSCF Address Result: %s", (addr_result == 0) ? "SUCCESS" : "FAILED");
+            TSK_DEBUG_ANDROID_INFO("    - Local IP: %s", (addr_result == 0) ? local_ip : "UNKNOWN");
+            TSK_DEBUG_ANDROID_INFO("    - Local Port: %d", (addr_result == 0) ? local_port : 0);
+            TSK_DEBUG_ANDROID_INFO("    - Connected FD: %d", transport->connectedFD);
             
             TSK_DEBUG_INFO("Sending message via transport...");
+            TSK_DEBUG_ANDROID_INFO("Sending message via transport...");
             int sent_bytes = tsip_transport_send(transport, branch, TSIP_MESSAGE(msg), destIP, destPort);
             TSK_DEBUG_INFO("Transport send returned: %d bytes", sent_bytes);
+            TSK_DEBUG_ANDROID_INFO("Transport send returned: %d bytes", sent_bytes);
             
             if(sent_bytes > 0/* returns number of send bytes */) {
                 TSK_DEBUG_INFO("Message sent successfully (%d bytes)", sent_bytes);
+                TSK_DEBUG_ANDROID_INFO("Message sent successfully (%d bytes)", sent_bytes);
                 ret = 0;
             }
             else {
                 TSK_DEBUG_ERROR("Failed to send message (returned %d)", sent_bytes);
+                TSK_DEBUG_ANDROID_ERROR("Failed to send message (returned %d)", sent_bytes);
                 ret = -3;
             }
         }
         else {
             TSK_DEBUG_ERROR("Failed to find valid transport for destination %s:%d", 
                            destIP ? destIP : "NULL", destPort);
+            TSK_DEBUG_ANDROID_ERROR("Failed to find valid transport for destination %s:%d", 
+                           destIP ? destIP : "NULL", destPort);
             ret = -2;
         }
         TSK_FREE(destIP);
         TSK_DEBUG_INFO("tsip_transport_layer_send() returning: %d", ret);
+        TSK_DEBUG_ANDROID_INFO("tsip_transport_layer_send() returning: %d", ret);
         return ret;
     }
     else {
         TSK_DEBUG_ERROR("Invalid Parameter: msg=%p, self=%p, stack=%p", 
+                       msg, self, self ? self->stack : NULL);
+        TSK_DEBUG_ANDROID_ERROR("Invalid Parameter: msg=%p, self=%p, stack=%p", 
                        msg, self, self ? self->stack : NULL);
         return -1;
     }
@@ -1279,6 +1438,8 @@ tsk_bool_t tsip_transport_layer_have_stream_peer_with_remote_ip(const tsip_trans
 
 int tsip_transport_layer_start(tsip_transport_layer_t* self)
 {
+    TSK_DEBUG_ANDROID_INFO("*** Transport Layer Starting ***");
+    
     if(self) {
         if(!self->running) {
             int ret = 0;
@@ -1286,15 +1447,25 @@ int tsip_transport_layer_start(tsip_transport_layer_t* self)
             tsip_transport_t* transport;
             int32_t transport_idx = self->stack->network.transport_idx_default;
 
+            TSK_DEBUG_ANDROID_INFO("Transport Layer Configuration:");
+            TSK_DEBUG_ANDROID_INFO("  - Default Transport Index: %d", transport_idx);
+            TSK_DEBUG_ANDROID_INFO("  - Number of Transports: %zu", tsk_list_count(self->transports, tsk_null, tsk_null));
+
             /* start() */
+            TSK_DEBUG_ANDROID_INFO("Starting individual transports...");
             tsk_list_foreach(item, self->transports) {
                 transport = item->data;
+                TSK_DEBUG_ANDROID_INFO("  - Starting transport type: %d", transport->type);
                 if((ret = tsip_transport_start(transport))) {
+                    TSK_DEBUG_ANDROID_ERROR("Failed to start transport type %d: %d", transport->type, ret);
                     return ret;
+                } else {
+                    TSK_DEBUG_ANDROID_INFO("  - Transport type %d started successfully", transport->type);
                 }
             }
 
             /* connect() */
+            TSK_DEBUG_ANDROID_INFO("Configuring transport connections...");
             tsk_list_foreach(item, self->transports) {
                 transport = item->data;
 
@@ -1343,13 +1514,19 @@ int tsip_transport_layer_start(tsip_transport_layer_t* self)
             }
 
             self->running = tsk_true;
+            
+            TSK_DEBUG_ANDROID_INFO("*** Transport Layer Started Successfully ***");
+            TSK_DEBUG_ANDROID_INFO("  - All transports are now running");
+            TSK_DEBUG_ANDROID_INFO("  - Transport layer is ready for SIP messaging");
 
             return 0;
         }
         else {
+            TSK_DEBUG_ANDROID_INFO("Transport Layer already running");
             return -2;
         }
     }
+    TSK_DEBUG_ANDROID_ERROR("Invalid transport layer parameter");
     return -1;
 }
 
